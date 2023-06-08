@@ -21,7 +21,7 @@ PATH_TO_DOCKING_RESULTS = HERE / 'data/docking/5l4q'
 PATH_TO_HYDE_RESULTS = HERE / 'data/scoring/5l4q'
 PATH_TO_TEMPLATES =  HERE / 'data/templates/5l4q'
 
-num_fragments = 1                   # number of fragments to use 
+num_fragments = 5                   # number of fragments to use 
 num_conformers = 5                  # amount of conformers to choose per docked fragment  (according to docking score and diversity)
 num_fragments_per_iterations = 5  # amount of fragments to choose per docking iteration (according to docking score)
 
@@ -79,7 +79,7 @@ for core_fragment in core_fragments:
     core_fragment.to_sdf(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf')
 
     res = docking_utils.core_docking(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf', PATH_TO_DOCKING_CONFIGS / (core_subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf')
-    #docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf', PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf')
+    docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf', PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf')
 
     for conformer in res:   # safe every resulting pose within the fragment
         pose = docking_utils.Pose(conformer, float(conformer.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
@@ -130,13 +130,8 @@ for subpocket in subpockets:
         for recombination in ligand.recombinations:
             fragment = docking_utils.from_recombination(recombination)
 
-            molecule = fragment.ROMol
-            w = Chem.SDWriter('test.sdf')
-            w.write(molecule)
-            w.close
             # write recombination that should be docked to file
             fragment.to_sdf(PATH_TO_SDF_FRAGMENTS /(subpocket + '_fragment.sdf'))
-
 
             # for every choosen pose: perform template docking
             for i, pose in enumerate(ligand.poses):
@@ -145,7 +140,7 @@ for subpocket in subpockets:
                     w.write(pose.ROMol)
                 # template docking (FlexX)
                 print("=== Docking of " + str(list(fragment.fragment_ids.items())) + " Pose: " + str(i) +  " ====")
-                res = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / (subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('fragments.sdf'), print_output=True)
+                res = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / (subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('fragments.sdf'))
                 
                 # remove files containg docking results and template
                 docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('fragments.sdf'))
@@ -169,5 +164,5 @@ if len(docking_results):
     print("Best recombination: " + str(list(docking_results[0].fragment_ids.items())) + " Score: " + str(docking_results[0].min_docking_score))
 
     min_pose = min(docking_results[0].poses, key=lambda p: p.docking_score)
-    w = Chem.SDWriter(str(PATH_TO_DOCKING_RESULTS / ('final_fragment.sdf')))  # TODO: sometimes it doesn't write anything to the file
-    w.write(min_pose.ROMol)
+    with Chem.SDWriter(str(PATH_TO_DOCKING_RESULTS / ('final_fragment.sdf'))) as w: 
+        w.write(min_pose.ROMol)
