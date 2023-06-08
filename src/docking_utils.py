@@ -6,7 +6,7 @@ from typing import Any
 from rdkit import Chem
 import sys
 
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, Draw
 
 from rdkit.Chem import rdMolAlign
 
@@ -200,8 +200,9 @@ class Ligand:
 
         # protonate
         molecule = Chem.AddHs(self.ROMol)
+
         # 3D generation & optimization of the ligand itself
-        status = AllChem.EmbedMolecule(molecule)
+        status = AllChem.EmbedMolecule(molecule, randomSeed=0xf00d)
         status = AllChem.UFFOptimizeMolecule(molecule)
         with Chem.SDWriter(str(sdf_path)) as w:
             w.write(molecule)
