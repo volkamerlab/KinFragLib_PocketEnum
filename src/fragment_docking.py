@@ -2,17 +2,8 @@ from pathlib import Path
 from kinfraglib import utils, filters
 import docking_utils
 from rdkit import Chem
-from pandas import DataFrame
-import pandas as pd
-from brics_rules import is_brics_bond
-from itertools import permutations
 
-import subprocess
 from pathlib import Path
-
-import pandas as pd
-from rdkit.Chem import PandasTools
-import matplotlib.pyplot as plt
 
 
 
@@ -28,8 +19,9 @@ PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments/5l4q'
 PATH_TO_DOCKING_RESULTS = HERE / 'data/docking/5l4q'
 PATH_TO_HYDE_RESULTS = HERE / 'data/scoring/5l4q'
 PATH_TO_TEMPLATES =  HERE / 'data/templates/5l4q'
+PATH_TO_RESULTS = HERE / 'data/results/5l4q'
 
-num_fragments = 5                 # number of fragments to use 
+num_fragments = 1                   # number of fragments to use 
 num_conformers = 5                  # amount of conformers to choose per docked fragment  (according to docking score and diversity)
 num_fragments_per_iterations = 5  # amount of fragments to choose per docking iteration (according to docking score)
 
@@ -106,6 +98,9 @@ for subpocket in subpockets:
 
     docking_results.sort(key=lambda l: l.min_docking_score)
 
+    # store intermediate results if molecular weigth >= 400 and docking result is negativ TODO
+    docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: l.min_docking_score <= 0)
+
     # choose n best fragments
     docking_results = docking_results[:min(len(docking_results), num_fragments_per_iterations)]
 
@@ -161,6 +156,9 @@ for subpocket in subpockets:
 # ===== EVALUATION ======
 if len(docking_results):
     docking_results.sort(key=lambda l: l.min_docking_score)
+
+    docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf')
+
     with open("statistics.txt", "a") as f:
         for ligand in docking_results:
             f.write(str(list(ligand.fragment_ids.items())) + ": " + str(ligand.min_docking_score) + "\n")

@@ -172,7 +172,7 @@ class Ligand:
         self.dummy_atoms = {}
         self.min_docking_score = None
         self.recombinations = []
-        self.recombination = recombination
+        self.recombination : Recombination = recombination
     def to_sdf(self, sdf_path):
         """
         Writes the current object to a sdf file.
@@ -199,13 +199,24 @@ class Ligand:
 
         Parameters
         ----------
-        Pose: Pose
+        pose: Pose
             Pose object that should be added
         """
         if self.min_docking_score == None or pose.docking_score < self.min_docking_score:
             self.min_docking_score = pose.docking_score
         self.poses.append(pose)
         return
+    def get_best_pose(self) -> Pose:
+        """
+        Get Pose with the best docking score
+
+        Resturns
+        --------
+        Pose
+            pose with lowest docking score
+        """
+        return min(self.poses, key=lambda p: p.docking_score)
+        
     def choose_template_poses(self, num_templates=None):
         """
         Chooses *num_templates*-best poses according to docking result and diversity and removes the non-top-scored or invalid poses
@@ -421,3 +432,28 @@ class Filter:
             fragment_library[sp] = fragment_library[sp][fragment_library[sp]['bool_' + self.name] == 1]
         
         return fragment_library
+    
+def append_ligands_to_file(ligands : 'list[Ligand]', path_output, condition = lambda l: True):
+    """
+    Appends the best poses of the given ligand to the output file if they fullfill condition and sets the fragment_ids and bonds as properties
+
+    Parameters
+    ----------
+    ligands: list[Ligand]
+        List containing all ligands
+    path_output: pathlib.path
+        Path to output file
+    condition: Ligand -> bool
+        Function that should return true iff the given ligand should be added to the given file, defaults to True
+    """
+
+    with open(str(path_output), 'at')  as outf:  # needed to be able to APPEND molecules to the result file
+        with Chem.SDWriter(outf) as w:
+            ligand: Ligand
+            for ligand in ligands:
+                if not condition(ligand):
+                    continue
+                mol = ligand.get_best_pose().ROMol
+                mol.SetProp('Fragments', str(ligand.recombination.fragments))
+                mol.SetProp('Bonds', str(ligand.recombination.bonds))
+                w.write(mol)
