@@ -190,8 +190,8 @@ class Ligand:
         # 3D generation & optimization of the ligand itself
         status = AllChem.EmbedMolecule(molecule)
         status = AllChem.UFFOptimizeMolecule(molecule)
-        w = Chem.SDWriter(str(sdf_path))
-        w.write(molecule)
+        with Chem.SDWriter(str(sdf_path)) as w:
+            w.write(molecule)
         return
     def add_pose(self, pose : Pose):
         """

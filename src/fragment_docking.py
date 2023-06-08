@@ -2,17 +2,9 @@ from pathlib import Path
 from kinfraglib import utils, filters
 import docking_utils
 from rdkit import Chem
-from pandas import DataFrame
-import pandas as pd
-from brics_rules import is_brics_bond
-from itertools import permutations
-
-import subprocess
 from pathlib import Path
 
 import pandas as pd
-from rdkit.Chem import PandasTools
-import matplotlib.pyplot as plt
 
 
 
@@ -142,9 +134,8 @@ for subpocket in subpockets:
             # for every choosen pose: perform template docking
             for i, pose in enumerate(ligand.poses):
                 # write template to sdf file
-                w = Chem.SDWriter(str(PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf')))  # TODO: sometimes it doesn't write anything to the file
-                w.write(pose.ROMol)
-
+                with Chem.SDWriter(str(PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'))) as w:
+                    w.write(pose.ROMol)
                 # template docking (FlexX)
                 print("=== Docking of " + str(list(fragment.fragment_ids.items())) + " Pose: " + str(i) +  " ====")
                 res = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / (subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('fragments.sdf'))
