@@ -21,7 +21,7 @@ PATH_TO_DOCKING_RESULTS = HERE / 'data/docking/5l4q'
 PATH_TO_HYDE_RESULTS = HERE / 'data/scoring/5l4q'
 PATH_TO_TEMPLATES =  HERE / 'data/templates/5l4q'
 
-num_fragments = 5                 # number of fragments to use 
+num_fragments = 1                   # number of fragments to use 
 num_conformers = 5                  # amount of conformers to choose per docked fragment  (according to docking score and diversity)
 num_fragments_per_iterations = 5  # amount of fragments to choose per docking iteration (according to docking score)
 
@@ -79,6 +79,7 @@ for core_fragment in core_fragments:
     core_fragment.to_sdf(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf')
 
     res = docking_utils.core_docking(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf', PATH_TO_DOCKING_CONFIGS / (core_subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf')
+    docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf', PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf')
 
     for conformer in res:   # safe every resulting pose within the fragment
         pose = docking_utils.Pose(conformer, float(conformer.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
@@ -87,8 +88,6 @@ for core_fragment in core_fragments:
         # if fragment could be docked, save fragment (including it's poses)
         print("  best docking score: " + str(core_fragment.min_docking_score))
         docking_results.append(core_fragment)
-
-    # TODO clean files
 
 # ===== TEMPLATE DOCKING ======
 
@@ -126,6 +125,7 @@ for subpocket in subpockets:
 
     docking_results = []
 
+    ligand : docking_utils.Ligand
     for ligand in candidates:
         for recombination in ligand.recombinations:
             fragment = docking_utils.from_recombination(recombination)
@@ -139,12 +139,18 @@ for subpocket in subpockets:
                 # template docking (FlexX)
                 print("=== Docking of " + str(list(fragment.fragment_ids.items())) + " Pose: " + str(i) +  " ====")
                 res = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / (subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('fragments.sdf'))
+                
+                # remove files containg docking results and template
+                docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('fragments.sdf'), PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'))
+
                 # safe resulting poses within fragment
                 for conformer in res:
                     pose = docking_utils.Pose(conformer, float(conformer.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
                     fragment.add_pose(pose)
                 if len(res):
                     print("  best docking score: " + str(fragment.min_docking_score))
+            # remove file containing recombination
+            docking_utils.remove_files(PATH_TO_SDF_FRAGMENTS /(subpocket + '_fragment.sdf'))
             if len(fragment.poses):
                 # safe recombination as result only if at least one pose was generated
                 docking_results.append(fragment)

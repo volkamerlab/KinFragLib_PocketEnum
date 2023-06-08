@@ -60,6 +60,19 @@ def core_docking(path_fragment, path_config, path_output, print_output=False):
     
     return docked_core_fragments
 
+def remove_files(*path_files: Path):
+    """
+    Deletes the given files if they exist (this function should be used after docking)
+
+    Parameters
+    ----------
+    path_files: **pathlib.path
+        Paths to files that should be deleted
+    """
+    for path_file in path_files:
+        if os.path.exists(path_file):
+            os.remove(str(path_file))
+
 def hyde_scoring(path_docking_results, path_config, path_output, print_output=False):
     """
     runs hydescoring
