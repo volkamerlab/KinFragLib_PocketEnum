@@ -158,5 +158,5 @@ if len(docking_results):
     print("Best recombination: " + str(list(docking_results[0].fragment_ids.items())) + " Score: " + str(docking_results[0].min_docking_score))
 
     min_pose = min(docking_results[0].poses, key=lambda p: p.docking_score)
-    w = Chem.SDWriter(str(PATH_TO_DOCKING_RESULTS / ('final_fragment.sdf')))  # TODO: sometimes it doesn't write anything to the file
-    w.write(min_pose.ROMol)
+    with Chem.SDWriter(str(PATH_TO_DOCKING_RESULTS / ('final_fragment.sdf'))):
+        w.write(min_pose.ROMol)
