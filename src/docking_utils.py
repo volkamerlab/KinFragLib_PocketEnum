@@ -349,7 +349,6 @@ class Recombination:
         fragment_library: Dict
             Library containing all fragments where the index should match to the fragment ids
         """
-        print("===> recombining:", self.fragments, self.bonds)
         self.ligand = utils.construct_ligand(self.fragments, self.bonds, fragment_library)
     def copy(self):
         """
