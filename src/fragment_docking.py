@@ -4,38 +4,33 @@ import docking_utils
 from rdkit import Chem
 from pathlib import Path
 
-# TODO json for defs
+import json
+
+with open('definitions.json', 'rt') as json_file:
+    definitions = json.load(json_file)
 
 # Definitions
 HERE = Path().resolve()
-PATH_DATA = HERE / "KinFragLib/data"
-PATH_DATA_BRENK = HERE / "KinFragLib/data/filters/Brenk"
-PATH_DATA_ENAMINE = HERE / "KinFragLib/data/filters/DataWarrior"
-PATH_TO_DOCKING_CONFIGS = HERE / 'docking_config/5l4q'
-PATH_TO_HYDE_CONFIGS = HERE / 'hyde_config/5l4q'
-PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments/5l4q'
-PATH_TO_DOCKING_RESULTS = HERE / 'data/docking/5l4q'
-PATH_TO_HYDE_RESULTS = HERE / 'data/scoring/5l4q'
-PATH_TO_TEMPLATES =  HERE / 'data/templates/5l4q'
+PATH_DATA = Path(definitions['KinFragLib'])
+PATH_TO_DOCKING_CONFIGS = Path(definitions['DockingConfig']) / definitions['pdbCode']
+PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments' / definitions['pdbCode']
+PATH_TO_DOCKING_RESULTS = HERE / 'data/docking' / definitions['pdbCode']
+PATH_TO_HYDE_RESULTS = HERE / 'data/scoring' / definitions['pdbCode']
+PATH_TO_TEMPLATES =  HERE / 'data/templates' / definitions['pdbCode']
 
-num_fragments = 5                 # number of fragments to use 
-num_conformers = 5                  # amount of conformers to choose per docked fragment  (according to docking score and diversity)
-num_fragments_per_iterations = 5  # amount of fragments to choose per docking iteration (according to docking score)
+# TODO json for defs
+
+num_fragments = 5                                                           # number of fragments to use 
+num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
+num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
 
 # define filters
-filters_ = []
-
-filters_.append(docking_utils.Filter('pains', {}))
-filters_.append(docking_utils.Filter('brenk', {'path_data': PATH_DATA_BRENK}))
-filters_.append(docking_utils.Filter('ro3', {})) # TODO add params
-filters_.append(docking_utils.Filter('qed', {'cutoff_val': 0.492}))
-filters_.append(docking_utils.Filter('bb', {'path_data': PATH_DATA_ENAMINE}))
-filters_.append(docking_utils.Filter('syba', {'cutoff_val': 0}))
+filters_ = [docking_utils.Filter(name, values) for name, values in definitions['Filters'].items()]
 
 # define pockets
-core_subpocket = 'AP'
+core_subpocket = definitions['CoreSubpocket']
 
-subpockets = ['FP', 'SE']
+subpockets = definitions['Subpockets']
 
 # ==== PREPROCESSING =======
 
