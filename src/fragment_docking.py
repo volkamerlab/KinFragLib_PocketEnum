@@ -2,17 +2,15 @@ from pathlib import Path
 from kinfraglib import utils, filters
 import docking_utils
 from rdkit import Chem
-
 from pathlib import Path
 
-
+# TODO json for defs
 
 # Definitions
 HERE = Path().resolve()
 PATH_DATA = HERE / "KinFragLib/data"
 PATH_DATA_BRENK = HERE / "KinFragLib/data/filters/Brenk"
 PATH_DATA_ENAMINE = HERE / "KinFragLib/data/filters/DataWarrior"
-PATH_COMBINATORIAL_LIBRARY = HERE /'KinFragLib/data/combinatorial_library/combinatorial_library_deduplicated.json'
 PATH_TO_DOCKING_CONFIGS = HERE / 'docking_config/5l4q'
 PATH_TO_HYDE_CONFIGS = HERE / 'hyde_config/5l4q'
 PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments/5l4q'
@@ -28,12 +26,12 @@ num_fragments_per_iterations = 5  # amount of fragments to choose per docking it
 # define filters
 filters_ = []
 
-"""filters_.append(docking_utils.Filter('pains', {}))
+filters_.append(docking_utils.Filter('pains', {}))
 filters_.append(docking_utils.Filter('brenk', {'path_data': PATH_DATA_BRENK}))
 filters_.append(docking_utils.Filter('ro3', {})) # TODO add params
 filters_.append(docking_utils.Filter('qed', {'cutoff_val': 0.492}))
 filters_.append(docking_utils.Filter('bb', {'path_data': PATH_DATA_ENAMINE}))
-filters_.append(docking_utils.Filter('syba', {'cutoff_val': 0}))"""
+filters_.append(docking_utils.Filter('syba', {'cutoff_val': 0}))
 
 # define pockets
 core_subpocket = 'AP'
@@ -49,7 +47,7 @@ print(str([sp + ': ' + str(len(fragment_library_original[sp])) for sp in fragmen
 
 print('Prefiltering ===>')
 # removing fragments in pool X
-# removing duplicates
+# removing duplicates  # TODO according to smiles with dummy
 # removing fragments without dummy atoms (unfragmented ligands)
 # removing fragments only connecting to pool X
 fragment_library = filters.prefilters.pre_filters(fragment_library_original)
@@ -137,9 +135,8 @@ for subpocket in subpockets:
             # for every choosen pose: perform template docking
             for i, pose in enumerate(ligand.poses):
                 # write template to sdf file
-                w = Chem.SDWriter(str(PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf')))  # TODO: sometimes it doesn't write anything to the file
-                w.write(pose.ROMol)
-
+                with Chem.SDWriter(str(PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'))) as w:
+                    w.write(pose.ROMol)
                 # template docking (FlexX)
                 print("=== Docking of " + str(list(fragment.fragment_ids.items())) + " Pose: " + str(i) +  " ====")
                 res = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / (subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('fragments.sdf'))
@@ -165,5 +162,5 @@ if len(docking_results):
     print("Best recombination: " + str(list(docking_results[0].fragment_ids.items())) + " Score: " + str(docking_results[0].min_docking_score))
 
     min_pose = min(docking_results[0].poses, key=lambda p: p.docking_score)
-    w = Chem.SDWriter(str(PATH_TO_DOCKING_RESULTS / ('final_fragment.sdf')))  # TODO: sometimes it doesn't write anything to the file
-    w.write(min_pose.ROMol)
+    with Chem.SDWriter(str(PATH_TO_DOCKING_RESULTS / ('final_fragment.sdf'))) as w:
+        w.write(min_pose.ROMol)
