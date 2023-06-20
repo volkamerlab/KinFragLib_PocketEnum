@@ -16,9 +16,7 @@ import pandas as pd
 from kinfraglib import utils, filters
 from brics_rules import is_brics_bond
 
-PATH_FLEXX = Path('./FlexX.app/Contents/MacOS/FlexX')
-
-def core_docking(path_fragment, path_config, path_output, print_output=False):
+def core_docking(path_fragment, path_config, path_output, path_flexx, print_output=False):
     """
     runs FlexX docking
 
@@ -32,13 +30,15 @@ def core_docking(path_fragment, path_config, path_output, print_output=False):
         Path to core-fragment sdf-file
     path_config: pathlib.path
         Path to FlexX-config file.
+    path_flexx: pathlib.path
+        Path to FlexX
     path_output: pathlib.path
         Path to output file
     """
     # core docking
     output_text = subprocess.run(
         [
-            str(PATH_FLEXX),
+            str(Path('.') / path_flexx),
             "-i",
             str(path_fragment),
             "--docking-definition",
@@ -103,7 +103,7 @@ def hyde_scoring(path_docking_results, path_config, path_output, print_output=Fa
     
     return opt_fragments
 
-def template_docking(path_fragment, path_template, path_config, path_output, print_output=False):
+def template_docking(path_fragment, path_template, path_config, path_output, path_flexx, print_output=False):
     """
     runs FlexX template-docking
 
@@ -119,13 +119,15 @@ def template_docking(path_fragment, path_template, path_config, path_output, pri
         Path to template-fragment sdf-file
     path_config: pathlib.path
         Path to FlexX-config file.
+    path_flexx: pathlib.path
+        Path to FlexX
     path_output: pathlib.path
         Path to output file
     """
     # template docking
     output_text = subprocess.run(
             [
-                str(PATH_FLEXX),
+                str(path_flexx),
                 "-i",
                 str(path_fragment),
                 "--docking-definition",
@@ -402,7 +404,7 @@ class Filter:
         if self.name == 'pains':
             fragment_library, _ = filters.unwanted_substructures.get_pains(fragment_library)
         elif self.name == 'brenk':
-            fragment_library, _ = filters.unwanted_substructures.get_brenk(fragment_library, self.get_param('path_data'))
+            fragment_library, _ = filters.unwanted_substructures.get_brenk(fragment_library, Path(self.get_param('path_data')))
         elif self.name == 'ro3':
             fragment_library = filters.drug_likeness.get_ro3_frags(fragment_library)
         elif self.name == 'qed':

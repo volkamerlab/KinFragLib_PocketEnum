@@ -12,6 +12,7 @@ with open('definitions.json', 'rt') as json_file:
 # Definitions
 HERE = Path().resolve()
 PATH_DATA = Path(definitions['KinFragLib'])
+PATH_FLEXX = Path(definitions['FlexX'])
 PATH_TO_DOCKING_CONFIGS = Path(definitions['DockingConfig']) / definitions['pdbCode']
 PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments' / definitions['pdbCode']
 PATH_TO_DOCKING_RESULTS = HERE / 'data/docking' / definitions['pdbCode']
@@ -20,7 +21,7 @@ PATH_TO_TEMPLATES =  HERE / 'data/templates' / definitions['pdbCode']
 
 # TODO json for defs
 
-num_fragments = 5                                                           # number of fragments to use 
+num_fragments = 2                                                           # number of fragments to use 
 num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
 num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
 
@@ -70,7 +71,7 @@ for core_fragment in core_fragments:
     # safe fragment as sdf file
     core_fragment.to_sdf(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf')
 
-    res = docking_utils.core_docking(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf', PATH_TO_DOCKING_CONFIGS / (core_subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf')
+    res = docking_utils.core_docking(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf', PATH_TO_DOCKING_CONFIGS / (core_subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf', PATH_FLEXX)
 
     for conformer in res:   # safe every resulting pose within the fragment
         pose = docking_utils.Pose(conformer, float(conformer.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
@@ -130,7 +131,7 @@ for subpocket in subpockets:
                     w.write(pose.ROMol)
                 # template docking (FlexX)
                 print("=== Docking of " + str(list(fragment.fragment_ids.items())) + " Pose: " + str(i) +  " ====")
-                res = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / (subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('fragments.sdf'))
+                res = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / (subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / (subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('fragments.sdf'), PATH_FLEXX)
                 # safe resulting poses within fragment
                 for conformer in res:
                     pose = docking_utils.Pose(conformer, float(conformer.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
