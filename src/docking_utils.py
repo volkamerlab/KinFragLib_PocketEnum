@@ -15,6 +15,7 @@ from functools import reduce
 import pandas as pd
 from kinfraglib import utils, filters
 from brics_rules import is_brics_bond
+import logging
 
 def core_docking(path_fragment, path_config, path_output, path_flexx, print_output=False):
     """
@@ -204,11 +205,21 @@ class Ligand:
         molecule = Chem.AddHs(self.ROMol)
 
         # 3D generation & optimization of the ligand itself
-        status = AllChem.EmbedMolecule(molecule, randomSeed=0xf00d)
-        status = AllChem.UFFOptimizeMolecule(molecule)
-        with Chem.SDWriter(str(sdf_path)) as w:
-            w.write(molecule)
-        return
+        if AllChem.EmbedMolecule(molecule, randomSeed=0xf00d) < 0:
+            # molecule is too big
+            if Chem.AllChem.EmbedMolecule(molecule , randomSeed=0xf00d, useRandomCoords=True) != 0:
+                # embedding wasn't succesful
+                logging.error('Could not embed molecule')
+                return False
+        try :
+            Chem.AllChem.UFFOptimizeMolecule(molecule)
+            with Chem.SDWriter(str(sdf_path)) as w:
+                w.write(molecule)
+            return True
+        except ValueError :
+            logging.error('Could not optimize molecule')
+            return False
+        
     def add_pose(self, pose : Pose):
         """
         Adds a pose to the given ligand.

@@ -76,7 +76,10 @@ docking_results = []
 for core_fragment in core_fragments:
     logging.debug('Docking of ' + core_subpocket + "-Fragment: " + str(core_fragment.fragment_ids[core_subpocket]))
     # safe fragment as sdf file
-    core_fragment.to_sdf(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf')
+    if not core_fragment.to_sdf(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf'):
+        # could not generate 3D-conformation
+        logging.error('Could not write Fragemnt: ' + str(core_fragment.fragment_ids) + ' to files due to 3d-generation-error')
+        continue
 
     res = docking_utils.core_docking(PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf', PATH_TO_DOCKING_CONFIGS / (core_subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf', PATH_FLEXX)
     docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / 'core_fragments.sdf', PATH_TO_SDF_FRAGMENTS / 'core_fragment.sdf')
@@ -138,7 +141,9 @@ for subpocket in subpockets:
             fragment = docking_utils.from_recombination(recombination)
 
             # write recombination that should be docked to file
-            fragment.to_sdf(PATH_TO_SDF_FRAGMENTS /(subpocket + '_fragment.sdf'))
+            if not fragment.to_sdf(PATH_TO_SDF_FRAGMENTS /(subpocket + '_fragment.sdf')):
+                logging.error('Could not write fragemnt: ' + str(fragment.fragment_ids) + ' to files due to 3d-generation-error')
+                continue
 
             # for every choosen pose: perform template docking
             for i, pose in enumerate(ligand.poses):
