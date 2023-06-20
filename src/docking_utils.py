@@ -6,7 +6,7 @@ from typing import Any
 from rdkit import Chem
 import sys
 
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, Draw
 
 from rdkit.Chem import rdMolAlign
 
@@ -59,6 +59,19 @@ def core_docking(path_fragment, path_config, path_output, path_flexx, print_outp
             docked_core_fragments.append(molecule)
     
     return docked_core_fragments
+
+def remove_files(*path_files: Path):
+    """
+    Deletes the given files if they exist (this function should be used after docking)
+
+    Parameters
+    ----------
+    path_files: **pathlib.path
+        Paths to files that should be deleted
+    """
+    for path_file in path_files:
+        if os.path.exists(path_file):
+            os.remove(str(path_file))
 
 def hyde_scoring(path_docking_results, path_config, path_output, print_output=False):
     """
@@ -189,8 +202,9 @@ class Ligand:
 
         # protonate
         molecule = Chem.AddHs(self.ROMol)
+
         # 3D generation & optimization of the ligand itself
-        status = AllChem.EmbedMolecule(molecule)
+        status = AllChem.EmbedMolecule(molecule, randomSeed=0xf00d)
         status = AllChem.UFFOptimizeMolecule(molecule)
         with Chem.SDWriter(str(sdf_path)) as w:
             w.write(molecule)
@@ -351,7 +365,6 @@ class Recombination:
         fragment_library: Dict
             Library containing all fragments where the index should match to the fragment ids
         """
-        print("===> recombining:", self.fragments, self.bonds)
         self.ligand = utils.construct_ligand(self.fragments, self.bonds, fragment_library)
     def copy(self):
         """
