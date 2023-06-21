@@ -6,7 +6,7 @@ from typing import Any
 from rdkit import Chem
 import sys
 
-from rdkit.Chem import AllChem
+from rdkit.Chem import AllChem, Draw
 
 from rdkit.Chem import rdMolAlign
 
@@ -15,10 +15,9 @@ from functools import reduce
 import pandas as pd
 from kinfraglib import utils, filters
 from brics_rules import is_brics_bond
+import logging
 
-PATH_FLEXX = Path('./FlexX.app/Contents/MacOS/FlexX')
-
-def core_docking(path_fragment, path_config, path_output, print_output=False):
+def core_docking(path_fragment, path_config, path_output, path_flexx, print_output=False):
     """
     runs FlexX docking
 
@@ -32,13 +31,15 @@ def core_docking(path_fragment, path_config, path_output, print_output=False):
         Path to core-fragment sdf-file
     path_config: pathlib.path
         Path to FlexX-config file.
+    path_flexx: pathlib.path
+        Path to FlexX
     path_output: pathlib.path
         Path to output file
     """
     # core docking
     output_text = subprocess.run(
         [
-            str(PATH_FLEXX),
+            str(Path('.') / path_flexx),
             "-i",
             str(path_fragment),
             "--docking-definition",
@@ -59,6 +60,19 @@ def core_docking(path_fragment, path_config, path_output, print_output=False):
             docked_core_fragments.append(molecule)
     
     return docked_core_fragments
+
+def remove_files(*path_files: Path):
+    """
+    Deletes the given files if they exist (this function should be used after docking)
+
+    Parameters
+    ----------
+    path_files: **pathlib.path
+        Paths to files that should be deleted
+    """
+    for path_file in path_files:
+        if os.path.exists(path_file):
+            os.remove(str(path_file))
 
 def hyde_scoring(path_docking_results, path_config, path_output, print_output=False):
     """
@@ -103,7 +117,7 @@ def hyde_scoring(path_docking_results, path_config, path_output, print_output=Fa
     
     return opt_fragments
 
-def template_docking(path_fragment, path_template, path_config, path_output, print_output=False):
+def template_docking(path_fragment, path_template, path_config, path_output, path_flexx, print_output=False):
     """
     runs FlexX template-docking
 
@@ -119,13 +133,15 @@ def template_docking(path_fragment, path_template, path_config, path_output, pri
         Path to template-fragment sdf-file
     path_config: pathlib.path
         Path to FlexX-config file.
+    path_flexx: pathlib.path
+        Path to FlexX
     path_output: pathlib.path
         Path to output file
     """
     # template docking
     output_text = subprocess.run(
             [
-                str(PATH_FLEXX),
+                str(path_flexx),
                 "-i",
                 str(path_fragment),
                 "--docking-definition",
@@ -187,12 +203,23 @@ class Ligand:
 
         # protonate
         molecule = Chem.AddHs(self.ROMol)
+
         # 3D generation & optimization of the ligand itself
-        status = AllChem.EmbedMolecule(molecule)
-        status = AllChem.UFFOptimizeMolecule(molecule)
-        with Chem.SDWriter(str(sdf_path)) as w:
-            w.write(molecule)
-        return
+        if AllChem.EmbedMolecule(molecule, randomSeed=0xf00d) < 0:
+            # molecule is too big
+            if Chem.AllChem.EmbedMolecule(molecule , randomSeed=0xf00d, useRandomCoords=True) != 0:
+                # embedding wasn't succesful
+                logging.error('Could not embed molecule')
+                return False
+        try :
+            Chem.AllChem.UFFOptimizeMolecule(molecule)
+            with Chem.SDWriter(str(sdf_path)) as w:
+                w.write(molecule)
+            return True
+        except ValueError :
+            logging.error('Could not optimize molecule')
+            return False
+        
     def add_pose(self, pose : Pose):
         """
         Adds a pose to the given ligand.
@@ -360,7 +387,6 @@ class Recombination:
         fragment_library: Dict
             Library containing all fragments where the index should match to the fragment ids
         """
-        print("===> recombining:", self.fragments, self.bonds)
         self.ligand = utils.construct_ligand(self.fragments, self.bonds, fragment_library)
     def copy(self):
         """
@@ -413,7 +439,7 @@ class Filter:
         if self.name == 'pains':
             fragment_library, _ = filters.unwanted_substructures.get_pains(fragment_library)
         elif self.name == 'brenk':
-            fragment_library, _ = filters.unwanted_substructures.get_brenk(fragment_library, self.get_param('path_data'))
+            fragment_library, _ = filters.unwanted_substructures.get_brenk(fragment_library, Path(self.get_param('path_data')))
         elif self.name == 'ro3':
             fragment_library = filters.drug_likeness.get_ro3_frags(fragment_library)
         elif self.name == 'qed':
