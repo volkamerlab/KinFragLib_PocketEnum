@@ -26,12 +26,12 @@ num_fragments_per_iterations = 5  # amount of fragments to choose per docking it
 # define filters
 filters_ = []
 
-filters_.append(docking_utils.Filter('pains', {}))
+"""filters_.append(docking_utils.Filter('pains', {}))
 filters_.append(docking_utils.Filter('brenk', {'path_data': PATH_DATA_BRENK}))
 filters_.append(docking_utils.Filter('ro3', {})) # TODO add params
 filters_.append(docking_utils.Filter('qed', {'cutoff_val': 0.492}))
 filters_.append(docking_utils.Filter('bb', {'path_data': PATH_DATA_ENAMINE}))
-filters_.append(docking_utils.Filter('syba', {'cutoff_val': 0}))
+filters_.append(docking_utils.Filter('syba', {'cutoff_val': 0}))"""
 
 # define pockets
 core_subpocket = 'AP'
@@ -96,8 +96,8 @@ for subpocket in subpockets:
 
     docking_results.sort(key=lambda l: l.min_docking_score)
 
-    # store intermediate results if molecular weigth >= 400 and docking result is negativ TODO
-    docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: l.min_docking_score <= 0)
+    # store intermediate results if docking result is negativ and consists of more than 1 fragment
+    docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: l.min_docking_score <= 0 and len(l.fragment_ids) > 1)
 
     # choose n best fragments
     docking_results = docking_results[:min(len(docking_results), num_fragments_per_iterations)]
