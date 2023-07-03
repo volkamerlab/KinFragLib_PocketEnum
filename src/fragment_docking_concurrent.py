@@ -4,12 +4,13 @@ import docking_utils
 from rdkit import Chem
 from pathlib import Path
 import logging
-from queue import Queue
 import time
 
 import json
 import threading_docking
 import itertools
+from functools import partial
+from concurrent.futures import ThreadPoolExecutor
 
 if __name__ == '__main__':
 
@@ -77,30 +78,17 @@ if __name__ == '__main__':
         core_fragments.append(docking_utils.Ligand(fragment_library[core_subpocket]['ROMol'][i], {core_subpocket: i}, docking_utils.Recombination([core_subpocket + "_" + str(i)], [])))
 
     # core docking 
-    # define result table per job
+    # define result list per job
     docking_results = []
-
-    queue = Queue()
-
-    for x in range(8):
-        worker = threading_docking.DockingWorker(queue, x, PATH_TO_SDF_FRAGMENTS, PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_TEMPLATES ,PATH_FLEXX)
-        worker.daemon = True
-        worker.start()
     
     start_time = time.time()
 
-    for core_fragment in core_fragments:
-        _results = []
-        docking_results.append(_results)
-        queue.put(('core_docking', _results, core_fragment, core_subpocket))
-    
-    queue.join()
+    with ThreadPoolExecutor() as executor:
+        task = partial(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, core_subpocket)
+        executor.map(lambda l: task(l, []), core_fragments)
 
     logging.info("Runtime: %s" % (time.time() - start_time))
     docking_results = list(itertools.chain.from_iterable(docking_results))
-    
-    
-    
 
     # ===== TEMPLATE DOCKING ======
 
@@ -146,14 +134,10 @@ if __name__ == '__main__':
         start_time = time.time()
 
         ligand : docking_utils.Ligand
-        for ligand in candidates:
-            for recombination in ligand.recombinations:
-                _results = []
-                docking_results.append(_results)
-                queue.put(('template_docking', _results, (ligand.poses, recombination), subpocket))
-        
-        queue.join()   
-
+        with ThreadPoolExecutor() as executor:
+            task = partial(threading_docking.template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES, subpocket))
+            executor.map(lambda p_r: task([], p_r[1], p_r[0]), ((ligand.poses, recombination) for ligand in candidates for recombination in ligand.recombinations))
+  
         logging.info("Runtime: %s" % (time.time() - start_time))
 
         docking_results = list(itertools.chain.from_iterable(docking_results))

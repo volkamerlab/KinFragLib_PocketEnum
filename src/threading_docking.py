@@ -1,11 +1,10 @@
-import os
-from queue import Queue
-from threading import Thread
+import threading
 import docking_utils 
 import logging
 from rdkit import Chem
 
-def core_docking_task(thread_id, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, docking_results, core_fragment, core_subpocket):
+def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, core_subpocket: str, docking_results: list, core_fragment):
+    thread_id = threading.get_ident()
     logging.debug('Docking of ' + core_subpocket + "-Fragment: " + str(core_fragment.fragment_ids[core_subpocket]))
     # safe fragment as sdf file
     if not core_fragment.to_sdf(PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_core_fragment.sdf')):
@@ -25,8 +24,8 @@ def core_docking_task(thread_id, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS
         logging.debug("Best docking score: " + str(core_fragment.min_docking_score))
         docking_results.append(core_fragment)
 
-def template_docking_task(thread_id, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES, docking_results, recombination, poses, subpocket):
-    
+def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES, subpocket, docking_results: list, recombination: docking_utils.Recombination, poses):
+    thread_id = threading.get_ident()
     logging.debug('Template docking of Recombination: ' + str(recombination.fragments))
     fragment = docking_utils.from_recombination(recombination)
 
@@ -57,30 +56,5 @@ def template_docking_task(thread_id, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CON
     if len(fragment.poses):
         # safe recombination as result only if at least one pose was generated
         docking_results.append(fragment)
-
-class DockingWorker(Thread):
-
-    def __init__(self, queue, thead_id, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_TEMPLATES, PATH_FLEXX):
-        Thread.__init__(self)
-        self.queue = queue
-        self.thread_id = thead_id
-        self.PATH_TO_SDF_FRAGMENTS = PATH_TO_SDF_FRAGMENTS
-        self.PATH_TO_DOCKING_CONFIGS = PATH_TO_DOCKING_CONFIGS
-        self.PATH_TO_DOCKING_RESULTS = PATH_TO_DOCKING_RESULTS
-        self.PATH_FLEXX = PATH_FLEXX
-        self.PATH_TO_TEMPLATES = PATH_TO_TEMPLATES
-
-    def run(self):
-        while True:
-            # Get the work from the queue and expand the tuple
-            task, docking_results, ligand, subpocket = self.queue.get()
-            try:
-                if task == 'core_docking':
-                    core_docking_task(self.thread_id, self.PATH_TO_SDF_FRAGMENTS,  self.PATH_TO_DOCKING_CONFIGS, self.PATH_TO_DOCKING_RESULTS, self.PATH_FLEXX, docking_results, ligand, subpocket)
-                elif task == 'template_docking':
-                    poses, recombination = ligand
-                    template_docking_task(self.thread_id, self.PATH_TO_SDF_FRAGMENTS,  self.PATH_TO_DOCKING_CONFIGS, self.PATH_TO_DOCKING_RESULTS, self.PATH_FLEXX, self.PATH_TO_TEMPLATES, docking_results, recombination, poses, subpocket)
-            finally:
-                self.queue.task_done()
 
 
