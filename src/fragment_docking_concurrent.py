@@ -5,6 +5,7 @@ from rdkit import Chem
 from pathlib import Path
 import logging
 import time
+import mailing
 
 
 import json
@@ -20,6 +21,8 @@ if __name__ == '__main__':
 
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
 
+    
+
     # Definitions
     HERE = Path().resolve()
     PATH_DATA = Path(definitions['KinFragLib'])
@@ -30,12 +33,14 @@ if __name__ == '__main__':
     PATH_TO_HYDE_RESULTS = HERE / 'data/scoring' / definitions['pdbCode']
     PATH_TO_TEMPLATES =  HERE / 'data/templates' / definitions['pdbCode']
 
-    num_fragments = 100                                                         # number of fragments to use 
+    num_fragments = 10                                                         # number of fragments to use 
     num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
     num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
 
     # define filters
     filters_ = [docking_utils.Filter(name, values) for name, values in definitions['Filters'].items()]
+
+    start_time_all = time.time()
 
     # define pockets
     core_subpocket = definitions['CoreSubpocket']
@@ -70,6 +75,7 @@ if __name__ == '__main__':
 
     # ===== CORE DOCKING =======
 
+    mailing.send_mail("", "Start core docking")
     logging.info('Core docking of ' + str(len(fragment_library[core_subpocket])) + ' ' + core_subpocket + '-Fragments')
 
     core_fragments = []
@@ -97,10 +103,12 @@ if __name__ == '__main__':
                 docking_results += result
 
     logging.info("Runtime: %s" % (time.time() - start_time))
+    mailing.send_mail("Scores:\n" + "".join(f"{l.fragment_ids}: {l.min_docking_score}\n" for l in docking_results), "Core docking done")
 
     # ===== TEMPLATE DOCKING ======
 
     for subpocket in subpockets:
+        mailing.send_mail("", f"Start {subpocket} docking")
         logging.info('Template docking of ' + str(len(fragment_library[subpocket])) + ' ' + subpocket + '-Fragments')
 
         # filtering
@@ -146,7 +154,7 @@ if __name__ == '__main__':
             # submit template docking tasks
             features = [executor.submit(task, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
             # iterate over all completetd tasks
-            for feature in as_completed(features):
+            for count, feature in enumerate(as_completed(features)):
                 try:
                     # get docking result
                     result = feature.result()
@@ -154,9 +162,13 @@ if __name__ == '__main__':
                     logging.error('Generated an exception during core_docking: %s' % (exc)) 
                 else:
                     docking_results += result
+                if count % (len(features) // 20) == 0:
+                    mailing.send_mail(f"{count} of {len(features)}", f"{subpocket} docking")
   
-        logging.info("Runtime: %s" % (time.time() - start_time))
+        logging.info(f"Runtime template-docking ({subpocket}): {(time.time() - start_time)}")
+        mailing.send_mail("Scores:\n" + "".join(f"{l.fragment_ids}: {l.min_docking_score}\n" for l in docking_results), f"{subpocket} docking done")
 
+    logging.info("Runtime: %s" % (time.time() - start_time_all))
     # ===== EVALUATION ======
     if len(docking_results):
         docking_results.sort(key=lambda l: l.min_docking_score)
