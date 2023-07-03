@@ -26,7 +26,7 @@ def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_D
     # if no pose was found: return empty list
     return []
 
-def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES, subpocket, docking_results: list, recombination: docking_utils.Recombination, poses):
+def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES, subpocket, recombination: docking_utils.Recombination, poses):
     thread_id = threading.get_ident()
     logging.debug('Template docking of Recombination: ' + str(recombination.fragments))
     fragment = docking_utils.from_recombination(recombination)
@@ -57,6 +57,6 @@ def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_
             logging.debug("Best docking score: " + str(fragment.min_docking_score))
     if len(fragment.poses):
         # safe recombination as result only if at least one pose was generated
-        docking_results.append(fragment)
-
+        return [fragment]
+    return []
 
