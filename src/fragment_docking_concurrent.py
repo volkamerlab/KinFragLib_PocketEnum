@@ -6,11 +6,12 @@ from pathlib import Path
 import logging
 import time
 
+
 import json
 import threading_docking
 import itertools
 from functools import partial
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 if __name__ == '__main__':
 
@@ -29,7 +30,7 @@ if __name__ == '__main__':
     PATH_TO_HYDE_RESULTS = HERE / 'data/scoring' / definitions['pdbCode']
     PATH_TO_TEMPLATES =  HERE / 'data/templates' / definitions['pdbCode']
 
-    num_fragments = 4                                                           # number of fragments to use 
+    num_fragments = 100                                                         # number of fragments to use 
     num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
     num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
 
@@ -78,17 +79,24 @@ if __name__ == '__main__':
         core_fragments.append(docking_utils.Ligand(fragment_library[core_subpocket]['ROMol'][i], {core_subpocket: i}, docking_utils.Recombination([core_subpocket + "_" + str(i)], [])))
 
     # core docking 
-    # define result list per job
     docking_results = []
     
     start_time = time.time()
 
     with ThreadPoolExecutor() as executor:
-        task = partial(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, core_subpocket)
-        executor.map(lambda l: task(l, []), core_fragments)
+        # submit core docking tasks
+        features = [executor.submit(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, core_subpocket, core_fragment) for core_fragment in core_fragments]
+        # iterate over all completetd tasks
+        for feature in as_completed(features):
+            try:
+               # get result
+               result = feature.result()
+            except Exception as exc:
+                logging.error('Generated an exception during core_docking: %s' % (exc)) 
+            else:
+                docking_results += result
 
     logging.info("Runtime: %s" % (time.time() - start_time))
-    docking_results = list(itertools.chain.from_iterable(docking_results))
 
     # ===== TEMPLATE DOCKING ======
 
@@ -96,7 +104,6 @@ if __name__ == '__main__':
         logging.info('Template docking of ' + str(len(fragment_library[subpocket])) + ' ' + subpocket + '-Fragments')
 
         # filtering
-
         docking_results.sort(key=lambda l: l.min_docking_score)
 
         # choose n best fragments
@@ -123,7 +130,7 @@ if __name__ == '__main__':
                 ligand.recombine(fragment_idx, subpocket, fragment_library) # possible recombinations are stored within ligand
             if len(ligand.recombinations):
                 num_recombinations += len(ligand.recombinations)
-                # use a ligand for template docking only if at least one recombination was produced for a ligand
+                # use a ligand for template docking iff at least one recombination was produced for a ligand
                 candidates.append(ligand)
 
         logging.debug('Generated ' + str(num_recombinations) + ' recombinations')
@@ -133,15 +140,22 @@ if __name__ == '__main__':
         
         start_time = time.time()
 
-        ligand : docking_utils.Ligand
         with ThreadPoolExecutor() as executor:
-            task = partial(threading_docking.template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES, subpocket))
-            executor.map(lambda p_r: task([], p_r[1], p_r[0]), ((ligand.poses, recombination) for ligand in candidates for recombination in ligand.recombinations))
+            # create partial template docking function due to huge amount of arguments
+            task = partial(threading_docking.template_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES)
+            # submit template docking tasks
+            features = [executor.submit(task, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
+            # iterate over all completetd tasks
+            for feature in as_completed(features):
+                try:
+                    # get docking result
+                    result = feature.result()
+                except Exception as exc:
+                    logging.error('Generated an exception during core_docking: %s' % (exc)) 
+                else:
+                    docking_results += result
   
         logging.info("Runtime: %s" % (time.time() - start_time))
-
-        docking_results = list(itertools.chain.from_iterable(docking_results))
-                
 
     # ===== EVALUATION ======
     if len(docking_results):

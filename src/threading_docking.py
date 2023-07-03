@@ -3,7 +3,7 @@ import docking_utils
 import logging
 from rdkit import Chem
 
-def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, core_subpocket: str, docking_results: list, core_fragment):
+def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, core_subpocket: str, core_fragment):
     thread_id = threading.get_ident()
     logging.debug('Docking of ' + core_subpocket + "-Fragment: " + str(core_fragment.fragment_ids[core_subpocket]))
     # safe fragment as sdf file
@@ -22,7 +22,9 @@ def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_D
     if len(res):
         # if fragment could be docked, save fragment (including it's poses)
         logging.debug("Best docking score: " + str(core_fragment.min_docking_score))
-        docking_results.append(core_fragment)
+        return [core_fragment]
+    # if no pose was found: return empty list
+    return []
 
 def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES, subpocket, docking_results: list, recombination: docking_utils.Recombination, poses):
     thread_id = threading.get_ident()
