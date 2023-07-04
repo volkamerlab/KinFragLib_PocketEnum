@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 import time
 import mailing
+import os
 
 
 import json
@@ -31,12 +32,18 @@ if __name__ == '__main__':
     PATH_TO_DOCKING_RESULTS = HERE / 'data/docking' / definitions['pdbCode']
     PATH_TO_HYDE_RESULTS = HERE / 'data/scoring' / definitions['pdbCode']
     PATH_TO_TEMPLATES =  HERE / 'data/templates' / definitions['pdbCode']
+    PATH_TO_RESULTS = HERE / 'data/results' / definitions['pdbCode']
 
-    num_fragments = 10                                                          # number of fragments to use 
+    # clear results file if it exists
+    if os.path.exists(PATH_TO_RESULTS/ 'results.sdf'):
+        with open(PATH_TO_RESULTS/ 'results.sdf') as file:
+            pass
+
+    num_fragments = 2                                                           # number of fragments to use 
     num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
     num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
 
-    num_threads = definitions.get('NumberThreads')                              # number of threads to use, if not specified number_of_CPUs * 5 are used
+    num_threads = definitions.get('NumberThreads')                              # number of threads to use, if not specified min(32, os.cpu_count() + 4) are used. If multithreading isn't wanted, NumberThreads should be set to 1
 
     # define filters
     filters_ = [docking_utils.Filter(name, values) for name, values in definitions['Filters'].items()]
@@ -115,6 +122,9 @@ if __name__ == '__main__':
         # filtering
         docking_results.sort(key=lambda l: l.min_docking_score)
 
+        # store intermediate results if docking result is negativ and consists of more than 1 fragment
+        docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: l.min_docking_score <= 0 and len(l.fragment_ids) > 1)
+
         # choose n best fragments
         docking_results = docking_results[:min(len(docking_results), num_fragments_per_iterations)]
 
@@ -163,13 +173,14 @@ if __name__ == '__main__':
                     logging.error('Generated an exception during core_docking: %s' % (exc)) 
                 else:
                     docking_results += result
-                if count % (len(features) // 20) == 0:
+                if count % (max(len(features) // 20, 1)) == 0:
                     mailing.send_mail(f"{count} of {len(features)}", f"{subpocket} docking")
   
         logging.info(f"Runtime template-docking ({subpocket}): {(time.time() - start_time)}")
         mailing.send_mail("Scores:\n" + "".join(f"{l.fragment_ids}: {l.min_docking_score}\n" for l in docking_results), f"{subpocket} docking done")
 
     logging.info("Runtime: %s" % (time.time() - start_time_all))
+
     # ===== EVALUATION ======
     if len(docking_results):
         docking_results.sort(key=lambda l: l.min_docking_score)
