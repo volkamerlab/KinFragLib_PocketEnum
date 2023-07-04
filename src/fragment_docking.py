@@ -21,6 +21,7 @@ PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments' / definitions['pdbCode']
 PATH_TO_DOCKING_RESULTS = HERE / 'data/docking' / definitions['pdbCode']
 PATH_TO_HYDE_RESULTS = HERE / 'data/scoring' / definitions['pdbCode']
 PATH_TO_TEMPLATES =  HERE / 'data/templates' / definitions['pdbCode']
+PATH_TO_RESULTS = HERE / 'data/results' / definitions['pdbCode']
 
 num_fragments = 2                                                           # number of fragments to use 
 num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
@@ -102,6 +103,9 @@ for subpocket in subpockets:
 
     docking_results.sort(key=lambda l: l.min_docking_score)
 
+    # store intermediate results if docking result is negativ and consists of more than 1 fragment
+    docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: l.min_docking_score <= 0 and len(l.fragment_ids) > 1)
+
     # choose n best fragments
     docking_results = docking_results[:min(len(docking_results), num_fragments_per_iterations)]
 
@@ -171,6 +175,9 @@ for subpocket in subpockets:
 # ===== EVALUATION ======
 if len(docking_results):
     docking_results.sort(key=lambda l: l.min_docking_score)
+
+    docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf')
+
     with open("statistics.txt", "a") as f:
         for ligand in docking_results:
             f.write(str(list(ligand.fragment_ids.items())) + ": " + str(ligand.min_docking_score) + "\n")
