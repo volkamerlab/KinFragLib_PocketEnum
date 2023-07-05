@@ -26,6 +26,8 @@ PATH_TO_RESULTS = HERE / 'data/results' / definitions['pdbCode']
 num_fragments = 2                                                           # number of fragments to use 
 num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
 num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
+cluster_based_pose_filtering = definitions['UseClusterBasedPoseFiltering']
+clusted_pose_filter_dist_threshold = definitions.get('DistanceThresholdClustering')
 
 # define filters
 filters_ = [docking_utils.Filter(name, values) for name, values in definitions['Filters'].items()]
@@ -111,7 +113,10 @@ for subpocket in subpockets:
 
     # choose k best conformers (per fragment)
     for ligand in docking_results:
-        ligand.choose_template_poses(num_conformers)
+        if cluster_based_pose_filtering:
+            ligand.choose_template_poses_cluster_based(num_conformers)
+        else:
+            ligand.choose_template_poses(num_conformers)
 
     # only for evaluation (statistics) purpose 
     with open("statistics.txt", "a") as f:

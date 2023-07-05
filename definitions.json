@@ -1,5 +1,5 @@
 {
-    "pdbCode": "5l4q",
+    "pdbCode": "5n3j",
     "CoreSubpocket": "AP",
     "Subpockets": ["FP", "SE"],
     "KinFragLib": "KinFragLib/data",
@@ -13,5 +13,6 @@
             "ro3": {},
             "qed": {"cutoff_val": 0.492},
             "syba": {"cutoff_val": 0}
-    }
+    },
+    "UseClusterBasedPoseFiltering": true
 }

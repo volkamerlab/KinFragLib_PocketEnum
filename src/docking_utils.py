@@ -5,6 +5,7 @@ from typing import Any
 
 from rdkit import Chem
 import sys
+from rdkit.ML.Cluster import Butina
 
 from rdkit.Chem import AllChem, Draw
 
@@ -116,6 +117,22 @@ def hyde_scoring(path_docking_results, path_config, path_output, print_output=Fa
             opt_fragments.append(molecule_opt)
     
     return opt_fragments
+
+def calc_distance_matrix(molecules):
+    """
+    Calculates the distance matrix (based on RMSD) that can be used for clustering
+
+    Parameters
+    ----------
+    molecules: List(Mol)
+        List of molecules for which the matrix is calculated
+    """
+    atom_mapping = [[j, j] for j in range(molecules[0].GetNumAtoms())]
+
+    # for each combination calculate the RMSD (without considering symmetry)
+    return [rdMolAlign.CalcRMS(molecules[i], molecules[j], map = [atom_mapping]) for i in range(len(molecules)) for j in range(i)]
+
+
 
 def template_docking(path_fragment, path_template, path_config, path_output, path_flexx, print_output=False):
     """
@@ -285,6 +302,40 @@ class Ligand:
             self.poses.remove(pose)
         # overwrite poses with choosen poses
         self.poses = choosen_poses
+
+    def choose_template_poses_cluster_based(self, num_templates=None, distance_threshold = 1.5):
+        """
+        Chooses up to *num_templates*-best poses according to docking result and diversity and removes the non-top-scored or invalid poses.
+        Poses are clustered according to RMSD first. Then at most one pose per cluster is choosen. 
+
+        Parameters
+        ----------
+        num_templates: int
+            max. templates to choose, if None, num_templates == number of poses that have rmsd >= 1.5 A
+        """
+        if not len(self.poses):
+            # nothing to choose from
+            return
+
+        # calculate the distance matrix according to RMSD
+        dists_RMS = calc_distance_matrix([pose.ROMol for pose in self.poses])
+
+        # cluster poses according to the distance matrix 
+        clusters = Butina.ClusterData(dists_RMS, len(self.poses), distance_threshold, isDistData=True, reordering=True)
+
+        print(clusters)
+
+        if (not num_templates) or num_templates >= len(clusters):
+            # default of num_poses = amount of poses
+            num_templates = len(clusters)
+
+        # only use the best pose (according to docking score) per cluster
+        clustered_pose_gen = (min([self.poses[idx] for idx in cluster], key = lambda p : p.docking_score) for cluster in clusters)
+
+        # num_templates = min(amount clusters, num_templates) => ensures that at most one pose per cluster is choosen
+        num_templates = num_templates if num_templates and num_templates <= len(clusters) else len(clusters)
+
+        self.poses = sorted(clustered_pose_gen, key = lambda p : p.docking_score)[:num_templates]
 
     def calculate_missing_dummy_atoms(self, fragment_library):
         """
