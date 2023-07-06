@@ -25,6 +25,7 @@ if __name__ == '__main__':
     PATH_DATA = Path(definitions['KinFragLib'])
     PATH_FLEXX = Path(definitions['FlexX'])
     PATH_TO_DOCKING_CONFIGS = Path(definitions['DockingConfig']) / definitions['pdbCode']
+    PATH_TO_HYDE_CONFIGS = HERE / 'hyde_config' / definitions['pdbCode']
     PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments' / definitions['pdbCode']
     PATH_TO_DOCKING_RESULTS = HERE / 'data/docking' / definitions['pdbCode']
     PATH_TO_HYDE_RESULTS = HERE / 'data/scoring' / definitions['pdbCode']
@@ -36,7 +37,7 @@ if __name__ == '__main__':
         with open(PATH_TO_RESULTS/ 'results.sdf', 'wt') as file:
             pass
 
-    num_fragments = 2                                                           # number of fragments to use 
+    num_fragments = 20                                                           # number of fragments to use 
     num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
     num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
 
@@ -95,9 +96,9 @@ if __name__ == '__main__':
     
     start_time = time.time()
 
-    with ThreadPoolExecutor() as executor:
+    with ThreadPoolExecutor(num_threads) as executor:
         # submit core docking tasks
-        features = [executor.submit(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, core_subpocket, core_fragment) for core_fragment in core_fragments]
+        features = [executor.submit(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX, core_subpocket, core_fragment) for core_fragment in core_fragments]
         # iterate over all completetd tasks
         for feature in as_completed(features):
             try:
@@ -110,16 +111,20 @@ if __name__ == '__main__':
 
     logging.info("Runtime: %s" % (time.time() - start_time))
 
+    with open('ap_stats.txt', 'wt') as f:
+        for l in docking_results:
+            f.write(f"{l.fragment_ids}: {l.min_binding_affinity}")
+
     # ===== TEMPLATE DOCKING ======
 
     for subpocket in subpockets:
         logging.info('Template docking of ' + str(len(fragment_library[subpocket])) + ' ' + subpocket + '-Fragments')
 
         # filtering
-        docking_results.sort(key=lambda l: l.min_docking_score)
+        docking_results.sort(key=lambda l: l.min_binding_affinity)
 
         # store intermediate results if docking result is negativ and consists of more than 1 fragment
-        docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: l.min_docking_score <= 0 and len(l.fragment_ids) > 1)
+        docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
 
         # choose n best fragments
         docking_results = docking_results[:min(len(docking_results), num_fragments_per_iterations)]
@@ -134,7 +139,7 @@ if __name__ == '__main__':
         # only for evaluation (statistics) purpose 
         with open("statistics.txt", "a") as f:
             for ligand in docking_results:
-                f.write(str(list(ligand.fragment_ids.items())) + ": " + str(ligand.min_docking_score) + "\n")
+                f.write(str(list(ligand.fragment_ids.items())) + ": " + str(ligand.min_binding_affinity) + "\n")
 
         # recombining
 
@@ -158,9 +163,9 @@ if __name__ == '__main__':
         
         start_time = time.time()
 
-        with ThreadPoolExecutor() as executor:
+        with ThreadPoolExecutor(num_threads) as executor:
             # create partial template docking function due to huge amount of arguments
-            task = partial(threading_docking.template_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_FLEXX, PATH_TO_TEMPLATES)
+            task = partial(threading_docking.template_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX, PATH_TO_TEMPLATES)
             # submit template docking tasks
             features = [executor.submit(task, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
             # iterate over all completetd tasks
@@ -169,7 +174,7 @@ if __name__ == '__main__':
                     # get docking result
                     result = feature.result()
                 except Exception as exc:
-                    logging.error('Generated an exception during core_docking: %s' % (exc)) 
+                    logging.error('Generated an exception during template_docking: %s' % (exc)) 
                 else:
                     docking_results += result
   
@@ -179,11 +184,11 @@ if __name__ == '__main__':
 
     # ===== EVALUATION ======
     if len(docking_results):
-        docking_results.sort(key=lambda l: l.min_docking_score)
+        docking_results.sort(key=lambda l: l.min_binding_affinity)
         with open("statistics.txt", "a") as f:
             for ligand in docking_results:
                 f.write(str(list(ligand.fragment_ids.items())) + ": " + str(ligand.min_docking_score) + "\n")
-        logging.debug("Best recombination: " + str(list(docking_results[0].fragment_ids.items())) + " Score: " + str(docking_results[0].min_docking_score))
+        logging.debug("Best recombination: " + str(list(docking_results[0].fragment_ids.items())) + " Score: " + str(docking_results[0].min_binding_affinity))
 
         # store intermediate results if docking score <= 50 and consists of more than 1 fragment
         docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: l.min_docking_score <= 50 and len(l.fragment_ids) > 1)
