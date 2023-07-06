@@ -14,5 +14,7 @@
             "qed": {"cutoff_val": 0.492},
             "syba": {"cutoff_val": 0}
     },
+    "UseClusterBasedPoseFiltering": true,
+    "DistanceThresholdClustering": 1.5,
     "NumberThreads": 9
 }

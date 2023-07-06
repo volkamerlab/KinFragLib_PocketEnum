@@ -41,6 +41,8 @@ if __name__ == '__main__':
     num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
 
     num_threads = definitions.get('NumberThreads')                              # number of threads to use, if not specified min(32, os.cpu_count() + 4) are used. If multithreading isn't wanted, NumberThreads should be set to 1
+    cluster_based_pose_filtering = definitions['UseClusterBasedPoseFiltering']  
+    clusted_pose_filter_dist_threshold = definitions.get('DistanceThresholdClustering') # threshold that shuld be used for pose clustering
 
     # define filters
     filters_ = [docking_utils.Filter(name, values) for name, values in definitions['Filters'].items()]
@@ -124,7 +126,10 @@ if __name__ == '__main__':
 
         # choose k best conformers (per fragment)
         for ligand in docking_results:
-            ligand.choose_template_poses(num_conformers)
+            if cluster_based_pose_filtering:
+              ligand.choose_template_poses_cluster_based(num_conformers)
+            else:
+              ligand.choose_template_poses(num_conformers)
 
         # only for evaluation (statistics) purpose 
         with open("statistics.txt", "a") as f:
