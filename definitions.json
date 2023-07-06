@@ -1,7 +1,7 @@
 {
     "pdbCode": "5n3j",
     "CoreSubpocket": "AP",
-    "Subpockets": ["FP", "SE"],
+    "Subpockets": ["FP", "GA"],
     "KinFragLib": "KinFragLib/data",
     "DockingConfig": "docking_config",
     "FlexX": "FlexX.app/Contents/MacOS/FlexX",
@@ -15,5 +15,6 @@
             "syba": {"cutoff_val": 0}
     },
     "UseClusterBasedPoseFiltering": true,
-    "DistanceThresholdClustering": 1.5
+    "DistanceThresholdClustering": 1.5,
+    "NumberThreads": 9
 }
