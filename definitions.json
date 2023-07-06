@@ -13,5 +13,6 @@
             "ro3": {},
             "qed": {"cutoff_val": 0.492},
             "syba": {"cutoff_val": 0}
-    }
+    },
+    "NumberThreads": 9
 }
