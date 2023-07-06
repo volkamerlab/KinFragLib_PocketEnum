@@ -1,7 +1,7 @@
 {
-    "pdbCode": "5l4q",
+    "pdbCode": "5n3j",
     "CoreSubpocket": "AP",
-    "Subpockets": ["FP", "SE"],
+    "Subpockets": ["FP", "GA"],
     "KinFragLib": "KinFragLib/data",
     "DockingConfig": "docking_config",
     "FlexX": "FlexX.app/Contents/MacOS/FlexX",
@@ -13,5 +13,6 @@
             "ro3": {},
             "qed": {"cutoff_val": 0.492},
             "syba": {"cutoff_val": 0}
-    }
+    },
+    "NumberThreads": 9
 }
