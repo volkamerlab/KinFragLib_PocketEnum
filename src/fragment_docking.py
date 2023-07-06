@@ -33,7 +33,7 @@ if __name__ == '__main__':
 
     # clear results file if it exists
     if os.path.exists(PATH_TO_RESULTS/ 'results.sdf'):
-        with open(PATH_TO_RESULTS/ 'results.sdf') as file:
+        with open(PATH_TO_RESULTS/ 'results.sdf', 'wt') as file:
             pass
 
     num_fragments = 2                                                           # number of fragments to use 
@@ -184,6 +184,9 @@ if __name__ == '__main__':
             for ligand in docking_results:
                 f.write(str(list(ligand.fragment_ids.items())) + ": " + str(ligand.min_docking_score) + "\n")
         logging.debug("Best recombination: " + str(list(docking_results[0].fragment_ids.items())) + " Score: " + str(docking_results[0].min_docking_score))
+
+        # store intermediate results if docking score <= 50 and consists of more than 1 fragment
+        docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: l.min_docking_score <= 50 and len(l.fragment_ids) > 1)
 
         min_pose = min(docking_results[0].poses, key=lambda p: p.docking_score)
         with Chem.SDWriter(str(PATH_TO_DOCKING_RESULTS / ('final_fragment.sdf'))) as w:

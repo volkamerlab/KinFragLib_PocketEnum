@@ -323,8 +323,6 @@ class Ligand:
         # cluster poses according to the distance matrix 
         clusters = Butina.ClusterData(dists_RMS, len(self.poses), distance_threshold, isDistData=True, reordering=True)
 
-        print(clusters)
-
         if (not num_templates) or num_templates >= len(clusters):
             # default of num_poses = amount of poses
             num_templates = len(clusters)
