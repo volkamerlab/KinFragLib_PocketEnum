@@ -251,7 +251,7 @@ class Ligand:
         """
         if self.min_docking_score == None or pose.docking_score < self.min_docking_score:
             self.min_docking_score = pose.docking_score
-        if self.min_binding_affinity == None or pose.binding_affinity_lower < self.min_binding_affinity:
+        if pose.binding_affinity_lower and (self.min_binding_affinity == None or pose.binding_affinity_lower < self.min_binding_affinity):
             self.min_binding_affinity = pose.binding_affinity_lower
         self.poses.append(pose)
         return
@@ -264,7 +264,7 @@ class Ligand:
         Pose
             pose with lowest docking score
         """
-        return min(self.poses, key=lambda p: p.binding_affinity_lower)
+        return min(self.poses, key=lambda p: p.binding_affinity_lower) if self.min_binding_affinity else min(self.poses, key=lambda p: p.docking_score)
         
     def choose_template_poses(self, num_templates=None):
         """
@@ -328,17 +328,16 @@ class Ligand:
         # cluster poses according to the distance matrix 
         clusters = Butina.ClusterData(dists_RMS, len(self.poses), distance_threshold, isDistData=True, reordering=True)
 
-        if (not num_templates) or num_templates >= len(clusters):
-            # default of num_poses = amount of poses
-            num_templates = len(clusters)
-
-        # only use the best pose (according to docking score) per cluster
-        clustered_pose_gen = (min([self.poses[idx] for idx in cluster], key = lambda p : p.binding_affinity_lower) for cluster in clusters)
-
         # num_templates = min(amount clusters, num_templates) => ensures that at most one pose per cluster is choosen
         num_templates = num_templates if num_templates and num_templates <= len(clusters) else len(clusters)
 
-        self.poses = sorted(clustered_pose_gen, key = lambda p : p.binding_affinity_lower)[:num_templates]
+        # only use the best pose (according to docking score) per cluster
+        if self.min_binding_affinity:
+            clustered_pose_gen = (min([self.poses[idx] for idx in cluster], key = lambda p : p.binding_affinity_lower) for cluster in clusters)
+            self.poses = sorted(clustered_pose_gen, key = lambda p : p.binding_affinity_lower)[:num_templates]
+        else:
+            clustered_pose_gen = (min([self.poses[idx] for idx in cluster], key = lambda p : p.docking_score) for cluster in clusters)
+            self.poses = sorted(clustered_pose_gen, key = lambda p : p.docking_score)[:num_templates]
 
     def calculate_missing_dummy_atoms(self, fragment_library):
         """
