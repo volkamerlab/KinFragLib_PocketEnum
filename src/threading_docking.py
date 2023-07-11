@@ -53,7 +53,7 @@ def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_D
             if docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])[0] > hyde_cutoff:
                 logging.warning(f"""VIOLATION: RMSD between HYDE and docking pose {core_fragment.fragment_ids} {conformer_hyde.GetProp('pose')}: 
                                 {docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])}""")
-                # if rmds > hyde_cutoff: drop pose
+                # drop pose if rmds > hyde_cutoff
                 continue
             pose = docking_utils.Pose(conformer_hyde, float(conformer_hyde.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
             pose.binding_affinity_upper = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]'))
@@ -71,7 +71,7 @@ def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_D
         # if fragment could be docked, save fragment (including it's poses)
         logging.debug("Best score: " + str(core_fragment.min_binding_affinity or core_fragment.min_docking_score))
         return [core_fragment]
-    # if no pose was found: return empty list
+    # return empty list if no pose was found
     return []
 
 def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_HYDE_CONFIG, PATH_FLEXX, PATH_HYDE, 

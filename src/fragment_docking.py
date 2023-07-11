@@ -76,7 +76,7 @@ if __name__ == '__main__':
     logging.debug('Finished prefiltering: ' + str([sp + ': ' + str(len(fragment_library[sp])) for sp in fragment_library.keys()]))
 
     # apply filters
-    for filter in []:#filters_:
+    for filter in filters_:
         logging.debug('Applying filter: ' + filter.name)
         l_before = [sp + ': ' + str(len(fragment_library[sp])) for sp in fragment_library.keys()]
         fragment_library = filter.apply_filter(fragment_library)
