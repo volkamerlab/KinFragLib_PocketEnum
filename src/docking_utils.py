@@ -75,7 +75,7 @@ def remove_files(*path_files: Path):
         if os.path.exists(path_file):
             os.remove(str(path_file))
 
-def hyde_scoring(path_docking_results, path_config, path_output, print_output=False):
+def hyde_scoring(path_docking_results, path_config, path_output, path_hyde, print_output=False):
     """
     runs hydescoring
 
@@ -91,10 +91,12 @@ def hyde_scoring(path_docking_results, path_config, path_output, print_output=Fa
         Path to hyde-config file.
     path_output: pathlib.path
         Path to output file
+    path_hyde: pathlib.path
+        Path to Hyde
     """
     output_text = subprocess.run(
         [
-            str('./Hydescorer.app/Contents/MacOS/hydescorer'),
+            str(Path('.') / path_hyde),
             "-i",
             str(path_docking_results),
             "--binding-site-definition",
@@ -328,6 +330,8 @@ class Ligand:
         # cluster poses according to the distance matrix 
         clusters = Butina.ClusterData(dists_RMS, len(self.poses), distance_threshold, isDistData=True, reordering=True)
 
+
+        print(clusters)
         # num_templates = min(amount clusters, num_templates) => ensures that at most one pose per cluster is choosen
         num_templates = num_templates if num_templates and num_templates <= len(clusters) else len(clusters)
 

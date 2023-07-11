@@ -41,13 +41,13 @@ def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_D
     
     if PATH_HYDE and len(res_docking):
         # if path to hyde is given: perform hyde_scoring and opt.
-        res_hyde = docking_utils.hyde_scoring(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE_CONFIG / (core_subpocket + '.hydescorer'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'))
+        res_hyde = docking_utils.hyde_scoring(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE_CONFIG / (core_subpocket + '.hydescorer'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE)
 
-        docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'))
+        # docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'))
 
         for conformer_docking, conformer_hyde in zip(res_docking, res_hyde):   # safe every resulting pose within the fragment
             if docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])[0] > 1.5:
-                logging.debug(f"VIOLATION: RMSD between HYDE and docking pose {core_fragment.fragment_ids} {conformer_hyde.GetProp('pose')}: {docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])}")
+                logging.warning(f"VIOLATION: RMSD between HYDE and docking pose {core_fragment.fragment_ids} {conformer_hyde.GetProp('pose')}: {docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])}")
                 # if rmds > 1.5: drop pose
                 continue
             pose = docking_utils.Pose(conformer_hyde, float(conformer_hyde.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
@@ -118,9 +118,9 @@ def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_
         res_docking = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_' + 'fragments.sdf'), PATH_FLEXX)
 
         if len(res_docking) and PATH_HYDE:
-            res_hyde = docking_utils.hyde_scoring(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_fragments.sdf'), PATH_HYDE_CONFIG / (subpocket + '.hydescorer'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_fragment.sdf'))
+            res_hyde = docking_utils.hyde_scoring(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_fragments.sdf'), PATH_HYDE_CONFIG / (subpocket + '.hydescorer'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_fragment.sdf'), PATH_HYDE)
             # remove files containg docking results and template
-            docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_fragment.sdf'))
+            #docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_fragment.sdf'))
 
             # safe resulting poses within fragment
             for conformer_hyde, conformer_docking in zip(res_hyde, res_docking):   # safe every resulting pose within the fragment
@@ -128,10 +128,13 @@ def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_
                 pose.binding_affinity_upper = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]'))
                 pose.binding_affinity_lower = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]')) 
                 rmsd = docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])[0]
+
                 if rmsd > 1.5:
-                    logging.debug(f"VIOLATION: RMSD between HYDE and docking pose {fragment.fragment_ids} {conformer_hyde.GetProp('pose')}: {rmsd}")
+                    logging.warning(f"VIOLATION: RMSD between HYDE and docking pose {fragment.fragment_ids} {conformer_hyde.GetProp('pose')}: {rmsd}")
                     with Chem.SDWriter(f'violation_{fragment.fragment_ids}_{thread_id}.sdf') as w:
+                        conformer_hyde.SetProp("_Name", f"OPT {fragment.fragment_ids} {conformer_hyde.GetProp('pose')}")
                         w.write(conformer_hyde)
+                        conformer_docking.SetProp("_Name", f"{fragment.fragment_ids} {conformer_hyde.GetProp('pose')}")
                         w.write(conformer_docking)
                 else:
                     fragment.add_pose(pose)

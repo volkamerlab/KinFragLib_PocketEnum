@@ -33,6 +33,7 @@ if __name__ == '__main__':
     PATH_TO_RESULTS = HERE / 'data/results' / definitions['pdbCode']
     PATH_HYDE = Path(definitions['Hyde']) if definitions['UseHyde'] else None
     use_hyde = definitions['UseHyde']
+    cutoff_hyde_displacement = definitions.get('HydeDisplacementCutoff') or 1.5     # rmds cutoff when a optimized pose can be droped 
 
     # clear results file if it exists
     if os.path.exists(PATH_TO_RESULTS/ 'results.sdf'):
@@ -90,7 +91,8 @@ if __name__ == '__main__':
     core_fragments = []
 
     # prepare all core fragments
-    for i in fragment_library[core_subpocket][:num_fragments].index:
+    for i in fragment_library[core_subpocket].index:
+        #if fragment_library[core_subpocket]['smiles'][i] == 'Cc1cc(N)[nH]n1':
         core_fragments.append(docking_utils.Ligand(fragment_library[core_subpocket]['ROMol'][i], {core_subpocket: i}, docking_utils.Recombination([core_subpocket + "_" + str(i)], [])))
 
     # core docking 
@@ -98,9 +100,12 @@ if __name__ == '__main__':
     
     start_time = time.time()
 
+    # create partial docking task to avoid function calls with many of 
+    core_docking_task = partial(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX, PATH_HYDE)
+
     with ThreadPoolExecutor(num_threads) as executor:
         # submit core docking tasks
-        features = [executor.submit(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX, PATH_HYDE, core_subpocket, core_fragment) for core_fragment in core_fragments]
+        features = [executor.submit(core_docking_task, core_subpocket, core_fragment) for core_fragment in core_fragments]
         # iterate over all completetd tasks
         for feature in as_completed(features):
             try:
@@ -112,10 +117,6 @@ if __name__ == '__main__':
                 docking_results += result
 
     logging.info("Runtime: %s" % (time.time() - start_time))
-
-    with open('ap_stats.txt', 'wt') as f:
-        for l in docking_results:
-            f.write(f"{l.fragment_ids}: {l.min_binding_affinity or l.min_docking_score}")
 
     # ===== TEMPLATE DOCKING ======
 
@@ -137,7 +138,7 @@ if __name__ == '__main__':
         # choose k best conformers (per fragment)
         for ligand in docking_results:
             if cluster_based_pose_filtering:
-              ligand.choose_template_poses_cluster_based(num_conformers)
+              ligand.choose_template_poses_cluster_based(num_conformers, clusted_pose_filter_dist_threshold)
             else:
               ligand.choose_template_poses(num_conformers)
 
@@ -152,9 +153,13 @@ if __name__ == '__main__':
 
         num_recombinations = 0
 
+        temp = {'SE': 'C[NH+]1CCN(c2ccnc(S)n2)CC1', 'FP': 'O=CNc1ccccc1', 'GA': 'C1CC1'}
+
         # try recombine every ligand (comb. of fragmnets) with every fragment of the current subpocket
         for ligand in docking_results:
-            for fragment_idx in fragment_library[subpocket][:num_fragments].index:
+            for fragment_idx in fragment_library[subpocket].index:
+                #if fragment_library[subpocket]['smiles'][fragment_idx] == temp[subpocket]:
+                #    print("found")
                 ligand.recombine(fragment_idx, subpocket, fragment_library) # possible recombinations are stored within ligand
             if len(ligand.recombinations):
                 num_recombinations += len(ligand.recombinations)
