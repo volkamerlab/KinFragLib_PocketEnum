@@ -92,7 +92,6 @@ if __name__ == '__main__':
 
     # prepare all core fragments
     for i in fragment_library[core_subpocket].index:
-        #if fragment_library[core_subpocket]['smiles'][i] == 'Cc1cc(N)[nH]n1':
         core_fragments.append(docking_utils.Ligand(fragment_library[core_subpocket]['ROMol'][i], {core_subpocket: i}, docking_utils.Recombination([core_subpocket + "_" + str(i)], [])))
 
     # core docking 
@@ -101,7 +100,8 @@ if __name__ == '__main__':
     start_time = time.time()
 
     # create partial docking task to avoid function calls with many of 
-    core_docking_task = partial(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX, PATH_HYDE)
+    core_docking_task = partial(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, 
+                                PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX, PATH_HYDE, cutoff_hyde_displacement)
 
     with ThreadPoolExecutor(num_threads) as executor:
         # submit core docking tasks
@@ -153,13 +153,9 @@ if __name__ == '__main__':
 
         num_recombinations = 0
 
-        temp = {'SE': 'C[NH+]1CCN(c2ccnc(S)n2)CC1', 'FP': 'O=CNc1ccccc1', 'GA': 'C1CC1'}
-
         # try recombine every ligand (comb. of fragmnets) with every fragment of the current subpocket
         for ligand in docking_results:
             for fragment_idx in fragment_library[subpocket].index:
-                #if fragment_library[subpocket]['smiles'][fragment_idx] == temp[subpocket]:
-                #    print("found")
                 ligand.recombine(fragment_idx, subpocket, fragment_library) # possible recombinations are stored within ligand
             if len(ligand.recombinations):
                 num_recombinations += len(ligand.recombinations)
@@ -175,7 +171,8 @@ if __name__ == '__main__':
 
         with ThreadPoolExecutor(num_threads) as executor:
             # create partial template docking function due to huge amount of arguments
-            task = partial(threading_docking.template_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX,PATH_HYDE, PATH_TO_TEMPLATES)
+            task = partial(threading_docking.template_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, 
+                           PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX,PATH_HYDE, PATH_TO_TEMPLATES, cutoff_hyde_displacement)
             # submit template docking tasks
             features = [executor.submit(task, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
             # iterate over all completetd tasks

@@ -3,7 +3,8 @@ import docking_utils
 import logging
 from rdkit import Chem
 
-def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_HYDE_CONFIG, PATH_FLEXX, PATH_HYDE, core_subpocket: str, core_fragment):
+def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_HYDE_CONFIG, PATH_FLEXX, 
+                      PATH_HYDE, hyde_cutoff, core_subpocket: str, core_fragment):
     """
     runs a FlexX core docking task. It should be used for multithreading.
 
@@ -37,18 +38,22 @@ def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_D
         logging.error('Could not write Fragemnt: ' + str(core_fragment.fragment_ids) + ' to files due to 3d-generation-error')
         return []
 
-    res_docking = docking_utils.core_docking(PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (core_subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_FLEXX)
+    res_docking = docking_utils.core_docking(PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (core_subpocket + '.flexx'), 
+                                             PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_FLEXX)
     
     if PATH_HYDE and len(res_docking):
         # if path to hyde is given: perform hyde_scoring and opt.
-        res_hyde = docking_utils.hyde_scoring(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE_CONFIG / (core_subpocket + '.hydescorer'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE)
+        res_hyde = docking_utils.hyde_scoring(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE_CONFIG / (core_subpocket + '.hydescorer'), 
+                                              PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE)
 
-        # docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'))
+        docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'), 
+                                   PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_core_fragment.sdf'))
 
         for conformer_docking, conformer_hyde in zip(res_docking, res_hyde):   # safe every resulting pose within the fragment
-            if docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])[0] > 1.5:
-                logging.warning(f"VIOLATION: RMSD between HYDE and docking pose {core_fragment.fragment_ids} {conformer_hyde.GetProp('pose')}: {docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])}")
-                # if rmds > 1.5: drop pose
+            if docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])[0] > hyde_cutoff:
+                logging.warning(f"""VIOLATION: RMSD between HYDE and docking pose {core_fragment.fragment_ids} {conformer_hyde.GetProp('pose')}: 
+                                {docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])}""")
+                # if rmds > hyde_cutoff: drop pose
                 continue
             pose = docking_utils.Pose(conformer_hyde, float(conformer_hyde.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
             pose.binding_affinity_upper = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]'))
@@ -69,7 +74,8 @@ def core_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_D
     # if no pose was found: return empty list
     return []
 
-def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_HYDE_CONFIG, PATH_FLEXX, PATH_HYDE, PATH_TO_TEMPLATES, subpocket, recombination: docking_utils.Recombination, poses):
+def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_HYDE_CONFIG, PATH_FLEXX, PATH_HYDE, 
+                          PATH_TO_TEMPLATES, hyde_cutoff, subpocket, recombination: docking_utils.Recombination, poses):
     """
     runs a FlexX template docking task. It should be used for multithreading.
 
@@ -115,12 +121,15 @@ def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_
         with Chem.SDWriter(str(PATH_TO_TEMPLATES / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'))) as w:
             w.write(pose.ROMol)
         # template docking (FlexX)
-        res_docking = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_' + 'fragments.sdf'), PATH_FLEXX)
+        res_docking = docking_utils.template_docking(PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_TEMPLATES / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), 
+                                                     PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_' + 'fragments.sdf'), PATH_FLEXX)
 
         if len(res_docking) and PATH_HYDE:
-            res_hyde = docking_utils.hyde_scoring(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_fragments.sdf'), PATH_HYDE_CONFIG / (subpocket + '.hydescorer'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_fragment.sdf'), PATH_HYDE)
+            res_hyde = docking_utils.hyde_scoring(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_fragments.sdf'), PATH_HYDE_CONFIG / (subpocket + '.hydescorer'), 
+                                                  PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_fragment.sdf'), PATH_HYDE)
             # remove files containg docking results and template
-            #docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_fragment.sdf'))
+            docking_utils.remove_files(PATH_TO_DOCKING_RESULTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_SDF_FRAGMENTS / ('thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), 
+                                       PATH_TO_HYDE_RESULTS / ('thread_' + str(thread_id) + '_fragment.sdf'))
 
             # safe resulting poses within fragment
             for conformer_hyde, conformer_docking in zip(res_hyde, res_docking):   # safe every resulting pose within the fragment
@@ -129,13 +138,8 @@ def template_docking_task(PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_
                 pose.binding_affinity_lower = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]')) 
                 rmsd = docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])[0]
 
-                if rmsd > 1.5:
+                if rmsd > hyde_cutoff:
                     logging.warning(f"VIOLATION: RMSD between HYDE and docking pose {fragment.fragment_ids} {conformer_hyde.GetProp('pose')}: {rmsd}")
-                    with Chem.SDWriter(f'violation_{fragment.fragment_ids}_{thread_id}.sdf') as w:
-                        conformer_hyde.SetProp("_Name", f"OPT {fragment.fragment_ids} {conformer_hyde.GetProp('pose')}")
-                        w.write(conformer_hyde)
-                        conformer_docking.SetProp("_Name", f"{fragment.fragment_ids} {conformer_hyde.GetProp('pose')}")
-                        w.write(conformer_docking)
                 else:
                     fragment.add_pose(pose)
         else:
