@@ -369,7 +369,6 @@ class Ligand:
         fragment = Chem.RemoveHs(fragment_library[subpocket]['ROMol_original'][fragment_id])
         # dummy atoms of the fragment that should to be recombined
         dummy_atoms = [(f"{subpocket}_{i}", a.GetNeighbors()[0].GetProp('environment'), a.GetProp('subpocket')) for i, a in enumerate(fragment.GetAtoms()) if a.GetSymbol() == '*']
-        new_rec = None
         for sp in self.dummy_atoms.keys():
             # for every subpocket (used by ligand): add a connection if valid
             matching_dummies = [(id, env) for id, env, con in dummy_atoms if con == sp] # dummy atoms of fragment that have a connection to the current subpocket
@@ -382,15 +381,11 @@ class Ligand:
             id_2, env_2 = matching_dummies_2[0]
             if not is_brics_bond(env, env_2):
                 continue
-            if new_rec == None:
-                new_rec = self.recombination.copy()
+            new_rec = self.recombination.copy()
             new_rec.add_fragment(subpocket + "_" + str(fragment_id), [[id, id_2]])
-        if new_rec != None:
             new_rec.construct(fragment_library)
             if new_rec.ligand != None:
                 self.recombinations.append(new_rec)
-                return True
-        return False
     
 def from_recombination(recombination) -> Ligand:
     """
