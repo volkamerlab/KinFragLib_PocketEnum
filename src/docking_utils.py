@@ -75,7 +75,7 @@ def remove_files(*path_files: Path):
         if os.path.exists(path_file):
             os.remove(str(path_file))
 
-def hyde_scoring(path_docking_results, path_config, path_output, print_output=False):
+def hyde_scoring(path_docking_results, path_config, path_output, path_hyde, print_output=False):
     """
     runs hydescoring
 
@@ -91,10 +91,12 @@ def hyde_scoring(path_docking_results, path_config, path_output, print_output=Fa
         Path to hyde-config file.
     path_output: pathlib.path
         Path to output file
+    path_hyde: pathlib.path
+        Path to Hyde
     """
     output_text = subprocess.run(
         [
-            str('./Hydescorer.app/Contents/MacOS/hydescorer'),
+            str(Path('.') / path_hyde),
             "-i",
             str(path_docking_results),
             "--binding-site-definition",
@@ -105,7 +107,7 @@ def hyde_scoring(path_docking_results, path_config, path_output, print_output=Fa
         capture_output=True
     )
     if print_output:
-        print(output_text.stdout)
+        print(output_text.stderr)
 
     # read results from sdf
     opt_fragments = []
@@ -194,6 +196,8 @@ class Pose:
     def __init__(self, ROMol, docking_score):
         self.docking_score = docking_score
         self.ROMol = ROMol
+        self.binding_affinity_upper = None
+        self.binding_affinity_lower = None
     def _is_valid_operand(self, other):
         return hasattr(other, 'docking_score')
 
@@ -204,6 +208,7 @@ class Ligand:
         self.fragment_ids = fragment_ids
         self.dummy_atoms = {}
         self.min_docking_score = None
+        self.min_binding_affinity = None
         self.recombinations = []
         self.recombination : Recombination = recombination
     def to_sdf(self, sdf_path):
@@ -248,6 +253,8 @@ class Ligand:
         """
         if self.min_docking_score == None or pose.docking_score < self.min_docking_score:
             self.min_docking_score = pose.docking_score
+        if pose.binding_affinity_lower and (self.min_binding_affinity == None or pose.binding_affinity_lower < self.min_binding_affinity):
+            self.min_binding_affinity = pose.binding_affinity_lower
         self.poses.append(pose)
         return
     def get_best_pose(self) -> Pose:
@@ -259,7 +266,7 @@ class Ligand:
         Pose
             pose with lowest docking score
         """
-        return min(self.poses, key=lambda p: p.docking_score)
+        return min(self.poses, key=lambda p: p.binding_affinity_lower) if self.min_binding_affinity else min(self.poses, key=lambda p: p.docking_score)
         
     def choose_template_poses(self, num_templates=None):
         """
@@ -323,17 +330,18 @@ class Ligand:
         # cluster poses according to the distance matrix 
         clusters = Butina.ClusterData(dists_RMS, len(self.poses), distance_threshold, isDistData=True, reordering=True)
 
-        if (not num_templates) or num_templates >= len(clusters):
-            # default of num_poses = amount of poses
-            num_templates = len(clusters)
 
-        # only use the best pose (according to docking score) per cluster
-        clustered_pose_gen = (min([self.poses[idx] for idx in cluster], key = lambda p : p.docking_score) for cluster in clusters)
-
+        print(clusters)
         # num_templates = min(amount clusters, num_templates) => ensures that at most one pose per cluster is choosen
         num_templates = num_templates if num_templates and num_templates <= len(clusters) else len(clusters)
 
-        self.poses = sorted(clustered_pose_gen, key = lambda p : p.docking_score)[:num_templates]
+        # only use the best pose (according to docking score) per cluster
+        if self.min_binding_affinity:
+            clustered_pose_gen = (min([self.poses[idx] for idx in cluster], key = lambda p : p.binding_affinity_lower) for cluster in clusters)
+            self.poses = sorted(clustered_pose_gen, key = lambda p : p.binding_affinity_lower)[:num_templates]
+        else:
+            clustered_pose_gen = (min([self.poses[idx] for idx in cluster], key = lambda p : p.docking_score) for cluster in clusters)
+            self.poses = sorted(clustered_pose_gen, key = lambda p : p.docking_score)[:num_templates]
 
     def calculate_missing_dummy_atoms(self, fragment_library):
         """
