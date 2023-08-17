@@ -1,24 +1,19 @@
 from pathlib import Path
 import subprocess
 import os
-from typing import Any
 
 from rdkit import Chem
-import sys
 from rdkit.ML.Cluster import Butina
 
-from rdkit.Chem import AllChem, Draw
+from rdkit.Chem import AllChem
 
 from rdkit.Chem import rdMolAlign
 
-from rdkit.Chem.PropertyMol import PropertyMol
-from functools import reduce
-import pandas as pd
 from kinfraglib import utils, filters
 from brics_rules import is_brics_bond
 import logging
 
-def core_docking(path_fragment, path_config, path_output, path_flexx, print_output=False):
+def core_docking(path_fragment, path_config, path_output, path_flexx, fragment_ids, smiles_dummy, smiles, print_output=False):
     """
     runs FlexX docking
 
@@ -34,6 +29,12 @@ def core_docking(path_fragment, path_config, path_output, path_flexx, print_outp
         Path to FlexX-config file.
     path_flexx: pathlib.path
         Path to FlexX
+    fragment_ids: dict
+        Dictionary containing subpocket mapped to the id of the fragment
+    smiles_dummy: dict
+        Dictionary containing subpocket mapped to the SMILES with dummy atom of the fragment
+    smiles: dict
+        Dictionary containing subpocket mapped to the SMILES of the fragment (without dummy atom)
     path_output: pathlib.path
         Path to output file
     """
@@ -56,8 +57,11 @@ def core_docking(path_fragment, path_config, path_output, path_flexx, print_outp
     # read core fragments poses from sdf
     docked_core_fragments = []
     if os.stat(str(path_output)).st_size:   # only acces reult file if at least one pose was generated
-        for i, molecule in enumerate(Chem.SDMolSupplier(str(path_output))):
-            molecule.SetProp('pose', str(i))
+        for molecule in Chem.SDMolSupplier(str(path_output)):
+            molecule.SetProp('fragment_ids', str(fragment_ids))
+            molecule.SetProp('smiles_ligand', Chem.MolToSmiles(molecule))
+            molecule.SetProp('smiles_fragments_dummy', str(smiles_dummy))
+            molecule.SetProp('smiles_fragments', str(smiles))
             docked_core_fragments.append(molecule)
     
     return docked_core_fragments
@@ -75,7 +79,7 @@ def remove_files(*path_files: Path):
         if os.path.exists(path_file):
             os.remove(str(path_file))
 
-def hyde_scoring(path_docking_results, path_config, path_output, path_hyde, print_output=False):
+def hyde_scoring(path_docking_results, path_config, path_output, path_hyde, fragment_ids, smiles_dummy, smiles, print_output=False):
     """
     runs hydescoring
 
@@ -93,6 +97,12 @@ def hyde_scoring(path_docking_results, path_config, path_output, path_hyde, prin
         Path to output file
     path_hyde: pathlib.path
         Path to Hyde
+    fragment_ids: dict
+        Dictionary containing subpocket mapped to the id of the fragment
+    smiles_dummy: dict
+        Dictionary containing subpocket mapped to the SMILES with dummy atom of the fragment
+    smiles: dict
+        Dictionary containing subpocket mapped to the SMILES of the fragment (without dummy atom)
     """
     output_text = subprocess.run(
         [
@@ -112,12 +122,20 @@ def hyde_scoring(path_docking_results, path_config, path_output, path_hyde, prin
     # read results from sdf
     opt_fragments = []
     if os.stat(str(path_output)).st_size and os.stat(str(path_docking_results)).st_size:  # only acces reult file if at least one pose was generated
-        for i, molecules in enumerate(zip(Chem.SDMolSupplier(str(path_docking_results)), Chem.SDMolSupplier(str(path_output)))):
-            molecule_docking, molecule_opt = molecules
-            molecule_opt.SetProp('pose', str(i))
+        for molecule_docking, molecule_opt in zip(Chem.SDMolSupplier(str(path_docking_results)), Chem.SDMolSupplier(str(path_output))):
+            # clear all hyde properties, that are not needed
+            superfluos_props = ['BIOSOLVEIT.HYDE_ATOM_SCORES [kJ/mol]', 'BIOSOLVEIT.HYDE_LIGAND_EFFICIENCY range: ++, +, 0, -, --', 'BIOSOLVEIT.HYDE_LIGAND_LIPOPHILIC_EFFICIENCY range: ++, +, 0, -, --', 'BIOSOLVEIT.INTER_CLASH range: red, yellow, green',
+                                'BIOSOLVEIT.INTRA_CLASH range: red, yellow, green', 'BIOSOLVEIT.INTRA_CLASH range: red, yellow, green', 'BIOSOLVEIT.MOLECULE_CHECKSUM', 'BIOSOLVEIT.TORSION_QUALITY range: red, yellow, green, not rotatable']
+            for prop in superfluos_props:
+                molecule_opt.ClearProp(prop)
+            # set proporties
+            molecule_opt.SetProp('fragment_ids', str(fragment_ids))
+            molecule_opt.SetProp('smiles_ligand', Chem.MolToSmiles(molecule_opt))
+            molecule_opt.SetProp('smiles_fragments_dummy', str(smiles_dummy))
+            molecule_opt.SetProp('smiles_fragments', str(smiles))
+            # copy docking from docked molecule to optimzed molecule
             molecule_opt.SetProp('BIOSOLVEIT.DOCKING_SCORE', molecule_docking.GetProp('BIOSOLVEIT.DOCKING_SCORE'))
             opt_fragments.append(molecule_opt)
-    
     return opt_fragments
 
 def calc_distance_matrix(molecules):
@@ -136,7 +154,7 @@ def calc_distance_matrix(molecules):
 
 
 
-def template_docking(path_fragment, path_template, path_config, path_output, path_flexx, print_output=False):
+def template_docking(path_fragment, path_template, path_config, path_output, path_flexx, fragment_ids, smiles_dummy, smiles, print_output=False):
     """
     runs FlexX template-docking
 
@@ -153,9 +171,15 @@ def template_docking(path_fragment, path_template, path_config, path_output, pat
     path_config: pathlib.path
         Path to FlexX-config file.
     path_flexx: pathlib.path
-        Path to FlexX
+        Path to Flexx
     path_output: pathlib.path
         Path to output file
+    fragment_ids: dict
+        Dictionary containing subpockets mapped to the id of the fragments 
+    smiles_dummy: dict
+        Dictionary containing subpockets mapped to the SMILES with dummy atom of the fragments
+    smiles: dict
+        Dictionary containing subpockets mapped to the SMILES of the fragments (without dummy atom) 
     """
     # template docking
     output_text = subprocess.run(
@@ -181,14 +205,31 @@ def template_docking(path_fragment, path_template, path_config, path_output, pat
 
     # read fragments poses from sdf
     docked_fragments = []
-    if not os.path.exists(str(path_output)): # If docking failed TODO docking shouldn't fail
-        return docked_fragments
     if os.stat(str(path_output)).st_size:
-        for i, molecule in enumerate(Chem.SDMolSupplier(str(path_output))):
-            molecule.SetProp('pose', str(i))
+        for molecule in Chem.SDMolSupplier(str(path_output)):
+            molecule.SetProp('fragment_ids', str(fragment_ids))
+            molecule.SetProp('smiles_ligand', Chem.MolToSmiles(molecule))
+            molecule.SetProp('smiles_fragments_dummy', str(smiles_dummy))
+            molecule.SetProp('smiles_fragments', str(smiles))
             docked_fragments.append(molecule)
     
     return docked_fragments
+
+def write_violations_to_file(violations, path_output):
+    """
+    Writes all violations (tuple of mols) to the output file
+
+    Parameters
+    ----------
+    molecules: list[tuple(mol, mol)]
+        List containing all violations
+    path_output: pathlib.path
+        Path to output file
+    """
+    with Chem.SDWriter(str(path_output)) as w:
+        for violation in violations:
+            w.write(violation[0])
+            w.write(violation[1])
 
 #   ===================  CLASS DEFINITIONS ================
 
@@ -202,7 +243,7 @@ class Pose:
         return hasattr(other, 'docking_score')
 
 class Ligand:
-    def __init__(self, ROMol, fragment_ids, recombination):
+    def __init__(self, ROMol, fragment_ids, recombination, smiles_dummy, smiles):
         self.ROMol = ROMol
         self.poses = []
         self.fragment_ids = fragment_ids
@@ -211,6 +252,11 @@ class Ligand:
         self.min_binding_affinity = None
         self.recombinations = []
         self.recombination : Recombination = recombination
+        self.smiles_dummy = smiles_dummy
+        self.smiles = smiles
+        self.num_hyde_violations = 0
+        self.mean_hyde_displacement_undropped = 0 # mean of displacement of all poses that were not dropped due to displacement violation
+        self.mean_hyde_displacement = 0  # mean of displacement of all poses (including violations)
     def to_sdf(self, sdf_path):
         """
         Writes the current object to a sdf file.
@@ -390,7 +436,7 @@ class Ligand:
             if not is_brics_bond(env, env_2):
                 continue
             new_rec = self.recombination.copy()
-            new_rec.add_fragment(subpocket + "_" + str(fragment_id), [[id, id_2]])
+            new_rec.add_fragment(subpocket + "_" + str(fragment_id), [[id, id_2]], fragment_library[subpocket]['smiles_dummy'][fragment_id], fragment_library[subpocket]['smiles'][fragment_id])
             new_rec.construct(fragment_library)
             if new_rec.ligand != None:
                 self.recombinations.append(new_rec)
@@ -408,15 +454,19 @@ def from_recombination(recombination) -> Ligand:
     recombination: Recombination
         Recombination that should be converted
     """
-    fragments = {x[:2]: int(x[3:]) for x in recombination.fragments}
-    return Ligand(recombination.ligand, fragments, recombination)
+    fragment_ids = {x[:2]: int(x[3:]) for x in recombination.fragments}
+    smiles = recombination.smiles.copy()
+    smiles_dummy = recombination.smiles_dummy.copy()
+    return Ligand(recombination.ligand, fragment_ids, recombination, smiles_dummy, smiles)
 
 class Recombination:
-    def __init__(self,fragment_ids, bonds):
+    def __init__(self, fragment_ids, bonds, smiles, smiles_dummy):
         self.ligand = None
         self.bonds = bonds
         self.fragments = fragment_ids
-    def add_fragment(self, fragment_id, bonds):
+        self.smiles = smiles
+        self.smiles_dummy = smiles_dummy
+    def add_fragment(self, fragment_id, bonds, smiles_dummy, smiles):
         """
         Adds a fragment given by it's id and bonds
 
@@ -426,9 +476,15 @@ class Recombination:
             Format: <subpocket>_<id>
         bonds: List(str)
             Format of a bond [<subpocket>_<atom_id>, <subpocket>_<atom_id>]
+        smiles_dummy: str
+            SMILES with dummy atom of fragment that should be added 
+        smiles: str
+            SMILES (without dummy atom) atom of fragment that should be added
         """
         if fragment_id not in self.fragments:
             self.fragments.append(fragment_id)
+        self.smiles[fragment_id[:2]] = smiles
+        self.smiles_dummy[fragment_id[:2]] = smiles_dummy
         self.bonds += bonds
     def construct(self, fragment_library):
         """
@@ -453,7 +509,7 @@ class Recombination:
         fragment_library: Dict
             Library containing all fragments where the index should match to the fragment ids
         """
-        return Recombination(self.fragments.copy(), self.bonds.copy())
+        return Recombination(self.fragments.copy(), self.bonds.copy(), self.smiles_dummy.copy(), self.smiles.copy())
     
 class Filter:
     def __init__(self, name, params: dict):
@@ -532,6 +588,21 @@ def append_ligands_to_file(ligands : 'list[Ligand]', path_output, condition = la
                 if not condition(ligand):
                     continue
                 mol = ligand.get_best_pose().ROMol
-                mol.SetProp('Fragments', str(ligand.recombination.fragments))
-                mol.SetProp('Bonds', str(ligand.recombination.bonds))
                 w.write(mol)
+
+def write_all_poses_to_file(molecules, path_output):
+    """
+    Writes all poses of the given molecules to the output file
+
+    Parameters
+    ----------
+    molecules: list[Ligand]
+        List containing all molecules
+    path_output: pathlib.path
+        Path to output file
+    """
+    with Chem.SDWriter(str(path_output)) as w:
+        ligand: Ligand
+        for ligand in molecules:
+            for pose in ligand.poses:
+                w.write(pose.ROMol)
