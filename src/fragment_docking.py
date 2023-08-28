@@ -29,8 +29,8 @@ if __name__ == '__main__':
     HERE = Path().resolve()
     PATH_DATA = Path(definitions['KinFragLib'])
     PATH_FLEXX = Path(definitions['FlexX'])
-    PATH_TO_DOCKING_CONFIGS = Path(definitions['DockingConfig']) / definitions['pdbCode']
-    PATH_TO_HYDE_CONFIGS = HERE / 'hyde_config' / definitions['pdbCode']
+    PATH_TO_DOCKING_CONFIGS = Path(definitions['Config']) / definitions['pdbCode']
+    PATH_TO_HYDE_CONFIGS = Path(definitions['Config']) / definitions['pdbCode']
     PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments' / definitions['pdbCode']
     PATH_TO_DOCKING_RESULTS = HERE / 'data/docking' / definitions['pdbCode']
     PATH_TO_HYDE_RESULTS = HERE / 'data/scoring' / definitions['pdbCode']
@@ -248,7 +248,7 @@ if __name__ == '__main__':
         
         start_time = time.time()
         
-        wandb.log({'total_frags_SP' + str(subpockets.index(subpocket) + 1): len(core_fragments)})
+        wandb.log({'total_frags_SP' + str(subpockets.index(subpocket) + 1): num_recombinations})
         docking_run_counter = 0
 
         with ThreadPoolExecutor(num_threads) as executor:
