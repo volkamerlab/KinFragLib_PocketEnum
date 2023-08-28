@@ -1,10 +1,10 @@
 {
-    "pdbCode": "5l4q",
+    "pdbCode": "3amb",
     "CoreSubpocket": "AP",
     "Subpockets": ["SE", "FP", "GA"],
     "KinFragLib": "KinFragLib/data",
-    "DockingConfig": "docking_config",
-    "FlexX": "FlexX.app/Contents/MacOS/FlexX",
+    "DockingConfig": "config_smarts_exclude",
+    "FlexX": "flexx-6.0.0-Linux-x64/flexx",
     "NumberFragmentsPerIterations": 10,
     "NumberPosesPerFragment": 5,
     "Filters": {
@@ -15,9 +15,9 @@
             "syba": {"cutoff_val": 0}
     },
     "UseClusterBasedPoseFiltering": true,
-    "DistanceThresholdClustering": 0.5,
-    "NumberThreads": 3,
+    "DistanceThresholdClustering": 1.5,
+    "NumberThreads": 128,
     "UseHyde": true,
-    "Hyde": "Hydescorer.app/Contents/MacOS/Hydescorer",
+    "Hyde": "hydescorer-2.0.0-Linux-x64/hydescorer",
     "HydeDisplacementCutoff": 2.0
 }
