@@ -1,0 +1,2 @@
+AP: two constraints (HBA or HBD) around hinde binder, 5 A
+others: heavy atom , 3.5 A
