@@ -6,6 +6,7 @@ from pathlib import Path
 import logging
 import time
 import os
+import wandb 
 
 import json
 import threading_docking
@@ -18,6 +19,11 @@ if __name__ == '__main__':
         definitions = json.load(json_file)
 
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
+    wandb.init(
+        # Set the project where this run will be logged
+        entity="kabu00002",
+        name=definitions['pdbCode'], 
+        project="subpocket_based_docking")
 
     # Definitions
     HERE = Path().resolve()
@@ -64,7 +70,6 @@ if __name__ == '__main__':
                    'NumberPosesPerFragment': num_conformers, 'NumberFragmentsPerIterations': num_fragments_per_iterations,
                    'UseClusterBasedPoseFiltering': cluster_based_pose_filtering, 'DistanceThresholdClustering': clusted_pose_filter_dist_threshold if cluster_based_pose_filtering else None, 
                    'Filters': definitions['Filters'],
-                   'Violations': {},
                    'GeneratedPoses': {},
                    'ChosenPoses': {},
                    'ChosenMolecules': {},
@@ -76,9 +81,11 @@ if __name__ == '__main__':
                    'DockedMolecules': {},
                    'MeanHydeDisplacement': {},
                    'MeanHydeDisplacementIncludingViolations': {},
-                   'NumDisplacements': {},
+                   'NumDisplacementViolations': {},
                    'DockingRuns': {},
-                   'SuccesfullDockingRuns':{}}
+                   'SuccesfullDockingRuns':{},
+                   'NumMultipleBondsBetweenFragmentAndLigand': {},
+                   'NumMultipleBondsBetweenTwoFragments': {}}
 
     # ==== PREPROCESSING =======
 
@@ -98,7 +105,7 @@ if __name__ == '__main__':
     logging.debug('Finished prefiltering: ' + str([sp + ': ' + str(len(fragment_library[sp])) for sp in fragment_library.keys()]))
 
     # apply filters
-    for filter in []:
+    for filter in filters_:
         logging.debug('Applying filter: ' + filter.name)
         l_before = [sp + ': ' + str(len(fragment_library[sp])) for sp in fragment_library.keys()]
         fragment_library = filter.apply_filter(fragment_library)
@@ -116,7 +123,7 @@ if __name__ == '__main__':
     core_fragments = []
 
     # prepare all core fragments
-    for i in fragment_library[core_subpocket].index[:10]:
+    for i in fragment_library[core_subpocket].index:
         smiles = fragment_library[core_subpocket]['smiles'][i]
         smiles_dummy = fragment_library[core_subpocket]['smiles_dummy'][i]
         core_fragments.append(docking_utils.Ligand(fragment_library[core_subpocket]['ROMol'][i], {core_subpocket: i}, 
@@ -134,6 +141,9 @@ if __name__ == '__main__':
     core_docking_task = partial(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, 
                                 PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX, PATH_HYDE, cutoff_hyde_displacement)
 
+    wandb.log({'total_frags_SP0': len(core_fragments)})
+    docking_run_counter = 0
+
     with ThreadPoolExecutor(num_threads) as executor:
         # submit core docking tasks
         features = [executor.submit(core_docking_task, core_subpocket, core_fragment) for core_fragment in core_fragments]
@@ -150,6 +160,8 @@ if __name__ == '__main__':
                     violations += result[1]
                 elif len(result) == 1:
                     unsuccesfull_3d_generations += result
+                docking_run_counter += 1
+                wandb.log({"docked_frags_SP0": docking_run_counter})
 
 
     # core docking logs
@@ -159,7 +171,7 @@ if __name__ == '__main__':
     output_logs['DockedMolecules']['SP0'] = len(docking_results)
     output_logs['MeanHydeDisplacement']['SP0'] = sum(mol.mean_hyde_displacement_undropped for mol in docking_results) / (len(docking_results) or 1)
     output_logs['MeanHydeDisplacementIncludingViolations']['SP0'] = sum(mol.mean_hyde_displacement for mol in docking_results) / (len(docking_results) or 1)
-    output_logs['NumDisplacements']['SP0'] = sum(mol.num_hyde_violations for mol in docking_results)
+    output_logs['NumDisplacementViolations']['SP0'] = sum(mol.num_hyde_violations for mol in docking_results)
     output_logs['DockingRuns']['SP0'] = len(core_fragments)
     output_logs['SuccesfullDockingRuns']['SP0'] = len(docking_results)
 
@@ -179,11 +191,8 @@ if __name__ == '__main__':
         else:
             docking_results.sort(key=lambda l: l.min_docking_score)
 
-        # store the best pose of a docked molecule if it consists of more than 1 fragment in the overall result file
-        docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
-
-        # store all poses of all docked molecules in one file for the current subpocket iteration
-        docking_utils.write_all_poses_to_file(docking_results, PATH_TO_RESULTS/ ('SP' + str(subpockets.index(subpocket)) + '.sdf'))
+        # save state before filtering
+        docking_results_pre_filtering = docking_results.copy()
 
         # choose n best fragments
         docking_results = docking_results[:min(len(docking_results), num_fragments_per_iterations)]
@@ -199,16 +208,27 @@ if __name__ == '__main__':
         output_logs['ChosenMolecules']['SP' + str(subpockets.index(subpocket))] = len(docking_results)
         output_logs['ChosenPoses']['SP' + str(subpockets.index(subpocket))] = sum(len(mol.poses) for mol in docking_results)
 
+        # store the best pose of a docked molecule if it consists of more than 1 fragment in the overall result file
+        docking_utils.append_ligands_to_file(docking_results_pre_filtering, docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
+
+        # store all poses of all docked molecules in one file for the current subpocket iteration
+        docking_utils.write_all_poses_to_file(docking_results_pre_filtering, docking_results, PATH_TO_RESULTS/ ('SP' + str(subpockets.index(subpocket)) + '.sdf'))
+
+
         # recombining
 
         candidates = []
 
         num_recombinations = 0
 
+        counter_num_multpl_bonds = 0
+        counter_num_unambigious_bonds = 0
         # try recombine every ligand (comb. of fragmnets) with every fragment of the current subpocket
         for ligand in docking_results:
-            for fragment_idx in fragment_library[subpocket].index[:10]:
-                ligand.recombine(fragment_idx, subpocket, fragment_library) # possible recombinations are stored within ligand
+            for fragment_idx in fragment_library[subpocket].index:
+                num_multpl_bonds, num_unambigious_bonds = ligand.recombine(fragment_idx, subpocket, fragment_library) # possible recombinations are stored within ligand
+                counter_num_multpl_bonds += num_multpl_bonds
+                counter_num_unambigious_bonds += num_unambigious_bonds
             if len(ligand.recombinations):
                 num_recombinations += len(ligand.recombinations)
                 # use a ligand for template docking iff at least one recombination was produced for a ligand
@@ -216,6 +236,8 @@ if __name__ == '__main__':
 
         logging.debug('Generated ' + str(num_recombinations) + ' recombinations')
         output_logs['Recombinations']['SP' + str(subpockets.index(subpocket) + 1)] = num_recombinations
+        output_logs['NumMultipleBondsBetweenFragmentAndLigand']['SP' + str(subpockets.index(subpocket) + 1)] = counter_num_multpl_bonds
+        output_logs['NumMultipleBondsBetweenTwoFragments']['SP' + str(subpockets.index(subpocket) + 1)] = counter_num_unambigious_bonds
         # template docking
 
         docking_results = []
@@ -225,6 +247,9 @@ if __name__ == '__main__':
         num_succ_docking_runs = 0
         
         start_time = time.time()
+        
+        wandb.log({'total_frags_SP' + str(subpockets.index(subpocket) + 1): len(core_fragments)})
+        docking_run_counter = 0
 
         with ThreadPoolExecutor(num_threads) as executor:
             # create partial template docking function due to huge amount of arguments
@@ -240,6 +265,8 @@ if __name__ == '__main__':
                 except Exception as exc:
                     logging.error('Generated an exception during template_docking: %s' % (exc)) 
                 else:
+                    docking_run_counter += 1
+                    wandb.log({"docked_frags_SP" + str(subpockets.index(subpocket) + 1): docking_run_counter})
                     if len(result):
                         docking_results.append(result[0])
                         violations += result[1]
@@ -257,14 +284,14 @@ if __name__ == '__main__':
         output_logs['DockedMolecules']['SP' + str(subpockets.index(subpocket) + 1)] = len(docking_results)
         output_logs['MeanHydeDisplacement']['SP' + str(subpockets.index(subpocket) + 1)] = sum(mol.mean_hyde_displacement_undropped for mol in docking_results) / (len(docking_results) or 1)
         output_logs['MeanHydeDisplacementIncludingViolations']['SP' + str(subpockets.index(subpocket) + 1)] = sum(mol.mean_hyde_displacement for mol in docking_results) / (len(docking_results) or 1) 
-        output_logs['NumDisplacements']['SP' + str(subpockets.index(subpocket) + 1)] = sum(mol.num_hyde_violations for mol in docking_results)
+        output_logs['NumDisplacementViolations']['SP' + str(subpockets.index(subpocket) + 1)] = sum(mol.num_hyde_violations for mol in docking_results)
         output_logs['DockingRuns']['SP' + str(subpockets.index(subpocket) + 1)] = num_docking_runs
         output_logs['SuccesfullDockingRuns']['SP' + str(subpockets.index(subpocket) + 1)] = num_succ_docking_runs
         # write violations so sdf file
         docking_utils.write_violations_to_file(violations, PATH_TO_RESULTS / ('violations_SP' + str(subpockets.index(subpocket) + 1) + '.sdf'))
 
     # store all poses of all docked molecules in one file for the current subpocket iteration
-    docking_utils.write_all_poses_to_file(docking_results, PATH_TO_RESULTS/ ('SP' + str(len(subpockets)) + '.sdf'))
+    docking_utils.write_all_poses_to_file(docking_results, docking_results, PATH_TO_RESULTS/ ('SP' + str(len(subpockets)) + '.sdf'))
 
     output_logs['Unsuccesful3DGenerations'] = [Chem.MolToSmiles(mol.ROMol) for mol in unsuccesfull_3d_generations]
 
@@ -287,7 +314,7 @@ if __name__ == '__main__':
         logging.debug("Best recombination: " + str(list(docking_results[0].fragment_ids.items())) + " Score: " + str(docking_results[0].min_binding_affinity or docking_results[0].min_docking_score))
 
         # store generated ligands
-        docking_utils.append_ligands_to_file(docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
+        docking_utils.append_ligands_to_file(docking_results, docking_results, PATH_TO_RESULTS/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
 
         
 

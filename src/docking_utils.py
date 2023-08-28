@@ -257,6 +257,7 @@ class Ligand:
         self.num_hyde_violations = 0
         self.mean_hyde_displacement_undropped = 0 # mean of displacement of all poses that were not dropped due to displacement violation
         self.mean_hyde_displacement = 0  # mean of displacement of all poses (including violations)
+        self.poses_pre_filtered = None
     def to_sdf(self, sdf_path):
         """
         Writes the current object to a sdf file.
@@ -323,6 +324,8 @@ class Ligand:
         num_templates: int
             max. templates to choose, if None, num_templates == len(path)
         """
+        self.poses_pre_filtered = self.poses.copy()
+
         if not len(self.poses):
             # nothing to choose from
             return
@@ -366,6 +369,9 @@ class Ligand:
         num_templates: int
             max. templates to choose, if None, num_templates == number of poses that have rmsd >= 1.5 A
         """
+
+        self.poses_pre_filtered = self.poses.copy()
+
         if not len(self.poses):
             # nothing to choose from
             return
@@ -376,8 +382,6 @@ class Ligand:
         # cluster poses according to the distance matrix 
         clusters = Butina.ClusterData(dists_RMS, len(self.poses), distance_threshold, isDistData=True, reordering=True)
 
-
-        print(clusters)
         # num_templates = min(amount clusters, num_templates) => ensures that at most one pose per cluster is choosen
         num_templates = num_templates if num_templates and num_templates <= len(clusters) else len(clusters)
 
@@ -423,6 +427,8 @@ class Ligand:
         fragment = Chem.RemoveHs(fragment_library[subpocket]['ROMol_original'][fragment_id])
         # dummy atoms of the fragment that should to be recombined
         dummy_atoms = [(f"{subpocket}_{i}", a.GetNeighbors()[0].GetProp('environment'), a.GetProp('subpocket')) for i, a in enumerate(fragment.GetAtoms()) if a.GetSymbol() == '*']
+        counter_recombinations = 0
+        counter_unambiguous_bonds = 0
         for sp in self.dummy_atoms.keys():
             # for every subpocket (used by ligand): add a connection if valid
             matching_dummies = [(id, env) for id, env, con in dummy_atoms if con == sp] # dummy atoms of fragment that have a connection to the current subpocket
@@ -430,6 +436,7 @@ class Ligand:
             if len(matching_dummies) != 1 or len(matching_dummies_2) != 1:
                 # if there are more than 1 connection to one subpocket (for now we only allow one connection between subpockets) OR no connection
                 # TODO maybe add all possibities 
+                counter_unambiguous_bonds += 1
                 continue
             id, env = matching_dummies[0]
             id_2, env_2 = matching_dummies_2[0]
@@ -439,7 +446,9 @@ class Ligand:
             new_rec.add_fragment(subpocket + "_" + str(fragment_id), [[id, id_2]], fragment_library[subpocket]['smiles_dummy'][fragment_id], fragment_library[subpocket]['smiles'][fragment_id])
             new_rec.construct(fragment_library)
             if new_rec.ligand != None:
+                counter_recombinations += 1
                 self.recombinations.append(new_rec)
+        return counter_recombinations, counter_unambiguous_bonds
     
 def from_recombination(recombination) -> Ligand:
     """
@@ -567,7 +576,7 @@ class Filter:
         
         return fragment_library
     
-def append_ligands_to_file(ligands : 'list[Ligand]', path_output, condition = lambda l: True):
+def append_ligands_to_file(ligands : 'list[Ligand]', ligands_filtered : 'list[Ligand]', path_output, condition = lambda l: True):
     """
     Appends the best poses of the given ligand to the output file if they fullfill condition and sets the fragment_ids and bonds as properties
 
@@ -588,9 +597,13 @@ def append_ligands_to_file(ligands : 'list[Ligand]', path_output, condition = la
                 if not condition(ligand):
                     continue
                 mol = ligand.get_best_pose().ROMol
+                if ligand in ligands_filtered:
+                    mol.SetProp('filtered', '0')
+                else:
+                    mol.SetProp('filtered', '1')
                 w.write(mol)
 
-def write_all_poses_to_file(molecules, path_output):
+def write_all_poses_to_file(molecules : 'list[Ligand]', ligands_filtered : 'list[Ligand]', path_output):
     """
     Writes all poses of the given molecules to the output file
 
@@ -604,5 +617,14 @@ def write_all_poses_to_file(molecules, path_output):
     with Chem.SDWriter(str(path_output)) as w:
         ligand: Ligand
         for ligand in molecules:
-            for pose in ligand.poses:
+            for pose in ligand.poses_pre_filtered if ligand.poses_pre_filtered else ligand.poses:
+                if ligand in ligands_filtered:
+                    # molecule was chosen
+                    if pose in ligand.poses:
+                        pose.ROMol.SetProp('filtered', '0') # pose was chosen
+                    else:
+                        pose.ROMol.SetProp('filtered', '2') # pose was not chosen
+                else:
+                    # molecule was not chosen
+                    pose.ROMol.SetProp('filtered', '1') # pose was chosen
                 w.write(pose.ROMol)
