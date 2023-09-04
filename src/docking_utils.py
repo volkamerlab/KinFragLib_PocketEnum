@@ -518,7 +518,7 @@ class Recombination:
         fragment_library: Dict
             Library containing all fragments where the index should match to the fragment ids
         """
-        return Recombination(self.fragments.copy(), self.bonds.copy(), self.smiles_dummy.copy(), self.smiles.copy())
+        return Recombination(self.fragments.copy(), self.bonds.copy(), self.smiles.copy(), self.smiles_dummy.copy())
     
 class Filter:
     def __init__(self, name, params: dict):

@@ -21,9 +21,9 @@ if __name__ == '__main__':
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
     wandb.init(
         # Set the project where this run will be logged
-        entity="kabu00002",
+        entity="kinase_pocket_enum",
         name=definitions['pdbCode'], 
-        project="subpocket_based_docking")
+        project="subpocket_based_docking_kinases")
 
     # Definitions
     HERE = Path().resolve()
@@ -123,11 +123,11 @@ if __name__ == '__main__':
     core_fragments = []
 
     # prepare all core fragments
-    for i in fragment_library[core_subpocket].index:
+    for i in fragment_library[core_subpocket].index[:3]:
         smiles = fragment_library[core_subpocket]['smiles'][i]
         smiles_dummy = fragment_library[core_subpocket]['smiles_dummy'][i]
         core_fragments.append(docking_utils.Ligand(fragment_library[core_subpocket]['ROMol'][i], {core_subpocket: i}, 
-                                                   docking_utils.Recombination([core_subpocket + "_" + str(i)], [], {core_subpocket: smiles_dummy}, {core_subpocket: smiles}), 
+                                                   docking_utils.Recombination([core_subpocket + "_" + str(i)], [], {core_subpocket: smiles}, {core_subpocket: smiles_dummy}), 
                                                    {core_subpocket: smiles_dummy}, {core_subpocket: smiles}))
 
     # core docking 
@@ -225,7 +225,7 @@ if __name__ == '__main__':
         counter_num_unambigious_bonds = 0
         # try recombine every ligand (comb. of fragmnets) with every fragment of the current subpocket
         for ligand in docking_results:
-            for fragment_idx in fragment_library[subpocket].index:
+            for fragment_idx in fragment_library[subpocket].index[:3]:
                 num_multpl_bonds, num_unambigious_bonds = ligand.recombine(fragment_idx, subpocket, fragment_library) # possible recombinations are stored within ligand
                 counter_num_multpl_bonds += num_multpl_bonds
                 counter_num_unambigious_bonds += num_unambigious_bonds
@@ -267,7 +267,7 @@ if __name__ == '__main__':
                 else:
                     docking_run_counter += 1
                     wandb.log({"docked_frags_SP" + str(subpockets.index(subpocket) + 1): docking_run_counter})
-                    if len(result):
+                    if len(result) == 2:
                         docking_results.append(result[0])
                         violations += result[1]
                         num_succ_docking_runs += result[2]
