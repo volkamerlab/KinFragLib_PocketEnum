@@ -7,6 +7,7 @@ import logging
 import time
 import os
 import wandb 
+import argparse
 
 import json
 import threading_docking
@@ -15,9 +16,39 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 if __name__ == '__main__':
 
-    with open('definitions.json', 'rt') as json_file:
+
+    # parse command line arguments
+    parser = argparse.ArgumentParser(
+                    prog='Subpocket-based docking',
+                    description='Generates compounds for a given kinase')
+    parser.add_argument('-d', '--definitions', default='definitions.json', help='JSON file with program configuration')
+    parser.add_argument('-o', '--output', default='output.json', help='Name of output JSON file with program statistics')
+    parser.add_argument('-r', '--results', default='results', help='Folder, where results are placed')
+
+    args = parser.parse_args()
+
+    # load program definitions
+    with open(args.definitions, 'rt') as json_file:
         definitions = json.load(json_file)
 
+    # Definitions
+    HERE = Path().resolve()
+    PATH_TEMP = HERE / 'temp' / definitions['pdbCode']
+    PATH_DATA = Path(definitions['KinFragLib'])
+    PATH_FLEXX = Path(definitions['FlexX'])
+    PATH_TO_CONFIGS = Path(definitions['Config']) / definitions['pdbCode']
+    PATH_TO_RESULTS = HERE / args.results / definitions['pdbCode']
+    PATH_HYDE = Path(definitions['Hyde']) if definitions['UseHyde'] else None
+    use_hyde = definitions['UseHyde']
+    cutoff_hyde_displacement = definitions.get('HydeDisplacementCutoff') or 2.5     # rmds cutoff when a optimized pose can be droped 
+    num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
+    num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
+
+    num_threads = definitions.get('NumberThreads')                              # number of threads to use, if not specified min(32, os.cpu_count() + 4) are used. If multithreading isn't wanted, NumberThreads should be set to 1
+    cluster_based_pose_filtering = definitions['UseClusterBasedPoseFiltering']  
+    clusted_pose_filter_dist_threshold = definitions.get('DistanceThresholdClustering') or 1.5 # threshold that should be used for pose clustering
+
+    # init logging
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
     wandb.init(
         # Set the project where this run will be logged
@@ -25,32 +56,20 @@ if __name__ == '__main__':
         name=definitions['pdbCode'], 
         project="subpocket_based_docking_kinases")
 
-    # Definitions
-    HERE = Path().resolve()
-    PATH_DATA = Path(definitions['KinFragLib'])
-    PATH_FLEXX = Path(definitions['FlexX'])
-    PATH_TO_DOCKING_CONFIGS = Path(definitions['Config']) / definitions['pdbCode']
-    PATH_TO_HYDE_CONFIGS = Path(definitions['Config']) / definitions['pdbCode']
-    PATH_TO_SDF_FRAGMENTS = HERE / 'data/fragments' / definitions['pdbCode']
-    PATH_TO_DOCKING_RESULTS = HERE / 'data/docking' / definitions['pdbCode']
-    PATH_TO_HYDE_RESULTS = HERE / 'data/scoring' / definitions['pdbCode']
-    PATH_TO_TEMPLATES =  HERE / 'data/templates' / definitions['pdbCode']
-    PATH_TO_RESULTS = HERE / 'data/results' / definitions['pdbCode']
-    PATH_HYDE = Path(definitions['Hyde']) if definitions['UseHyde'] else None
-    use_hyde = definitions['UseHyde']
-    cutoff_hyde_displacement = definitions.get('HydeDisplacementCutoff') or 1.5     # rmds cutoff when a optimized pose can be droped 
+    # create temp folder if it does not exists
+    if not os.path.exists(HERE / 'temp'):
+        os.mkdir(HERE / 'temp')
+    if not os.path.exists(PATH_TEMP):
+        os.mkdir(PATH_TEMP)
 
-    # clear results file if it exists
-    if os.path.exists(PATH_TO_RESULTS/ 'results.sdf'):
-        with open(PATH_TO_RESULTS/ 'results.sdf', 'wt') as file:
-            pass
-
-    num_conformers = definitions['NumberPosesPerFragment']                      # amount of conformers to choose per docked fragment  (according to docking score and diversity)
-    num_fragments_per_iterations = definitions['NumberFragmentsPerIterations']  # amount of fragments to choose per docking iteration (according to docking score)
-
-    num_threads = definitions.get('NumberThreads')                              # number of threads to use, if not specified min(32, os.cpu_count() + 4) are used. If multithreading isn't wanted, NumberThreads should be set to 1
-    cluster_based_pose_filtering = definitions['UseClusterBasedPoseFiltering']  
-    clusted_pose_filter_dist_threshold = definitions.get('DistanceThresholdClustering') or 1.5 # threshold that should be used for pose clustering
+    if not os.path.exists(HERE / args.results):
+        raise OSError(f"Result folder {str(HERE / args.results)} does not exists")
+    
+    if not os.path.exists(PATH_TO_RESULTS):
+        os.mkdir(PATH_TO_RESULTS)
+    
+    with open(PATH_TO_RESULTS/ 'results.sdf', 'wt') as file:
+        pass
 
     # define filters
     filters_ = [docking_utils.Filter(name, values) for name, values in definitions['Filters'].items()]
@@ -123,7 +142,7 @@ if __name__ == '__main__':
     core_fragments = []
 
     # prepare all core fragments
-    for i in fragment_library[core_subpocket].index[:3]:
+    for i in fragment_library[core_subpocket].index:
         smiles = fragment_library[core_subpocket]['smiles'][i]
         smiles_dummy = fragment_library[core_subpocket]['smiles_dummy'][i]
         core_fragments.append(docking_utils.Ligand(fragment_library[core_subpocket]['ROMol'][i], {core_subpocket: i}, 
@@ -138,8 +157,7 @@ if __name__ == '__main__':
     start_time = time.time()
 
     # create partial docking task to avoid function calls with many of 
-    core_docking_task = partial(threading_docking.core_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, 
-                                PATH_TO_DOCKING_RESULTS, PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX, PATH_HYDE, cutoff_hyde_displacement)
+    core_docking_task = partial(threading_docking.core_docking_task, PATH_TEMP,  PATH_TO_CONFIGS, PATH_TO_CONFIGS, PATH_FLEXX, PATH_HYDE, cutoff_hyde_displacement)
 
     wandb.log({'total_frags_SP0': len(core_fragments)})
     docking_run_counter = 0
@@ -225,7 +243,7 @@ if __name__ == '__main__':
         counter_num_unambigious_bonds = 0
         # try recombine every ligand (comb. of fragmnets) with every fragment of the current subpocket
         for ligand in docking_results:
-            for fragment_idx in fragment_library[subpocket].index[:3]:
+            for fragment_idx in fragment_library[subpocket].index:
                 num_multpl_bonds, num_unambigious_bonds = ligand.recombine(fragment_idx, subpocket, fragment_library) # possible recombinations are stored within ligand
                 counter_num_multpl_bonds += num_multpl_bonds
                 counter_num_unambigious_bonds += num_unambigious_bonds
@@ -253,8 +271,7 @@ if __name__ == '__main__':
 
         with ThreadPoolExecutor(num_threads) as executor:
             # create partial template docking function due to huge amount of arguments
-            task = partial(threading_docking.template_docking_task, PATH_TO_SDF_FRAGMENTS,  PATH_TO_DOCKING_CONFIGS, PATH_TO_DOCKING_RESULTS, 
-                           PATH_TO_HYDE_RESULTS, PATH_TO_HYDE_CONFIGS, PATH_FLEXX,PATH_HYDE, PATH_TO_TEMPLATES, cutoff_hyde_displacement)
+            task = partial(threading_docking.template_docking_task, PATH_TEMP,  PATH_TO_CONFIGS, PATH_TO_CONFIGS, PATH_FLEXX,PATH_HYDE, cutoff_hyde_displacement)
             # submit template docking tasks
             features = [executor.submit(task, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
             # iterate over all completetd tasks
@@ -267,11 +284,13 @@ if __name__ == '__main__':
                 else:
                     docking_run_counter += 1
                     wandb.log({"docked_frags_SP" + str(subpockets.index(subpocket) + 1): docking_run_counter})
-                    if len(result) == 2:
+                    if len(result) == 3:
+                        # docking was succesfull
                         docking_results.append(result[0])
                         violations += result[1]
                         num_succ_docking_runs += result[2]
                     elif len(result) == 1:
+                        # could not genrate the 3d conformation
                         unsuccesfull_3d_generations += result
                         num_docking_runs -= len(result[0].poses) * len(result[0].recombinations)
   
@@ -302,7 +321,7 @@ if __name__ == '__main__':
     # ===== EVALUATION ======
 
     # write logs to json output file
-    with open('output.json', 'w') as json_file:
+    with open(args.output, 'w') as json_file:
         json.dump(output_logs, json_file, indent=4)
 
     if len(docking_results):

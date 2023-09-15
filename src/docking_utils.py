@@ -52,7 +52,7 @@ def core_docking(path_fragment, path_config, path_output, path_flexx, fragment_i
         capture_output=True
     )
     if print_output:
-        print(output_text.stdout)
+        print(output_text.stderr)
 
     # read core fragments poses from sdf
     docked_core_fragments = []
@@ -201,7 +201,7 @@ def template_docking(path_fragment, path_template, path_config, path_output, pat
             capture_output=True,  # needed to capture output text
         )
     if print_output:
-        print(output_text)
+        print(output_text.stderr)
 
     # read fragments poses from sdf
     docked_fragments = []

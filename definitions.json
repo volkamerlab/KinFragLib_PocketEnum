@@ -3,7 +3,7 @@
     "CoreSubpocket": "AP",
     "Subpockets": ["SE", "FP", "GA"],
     "KinFragLib": "KinFragLib/data",
-    "DockingConfig": "config_smarts_exclude",
+    "Config": "config_smarts_exclude",
     "FlexX": "flexx-6.0.0-Linux-x64/flexx",
     "NumberFragmentsPerIterations": 10,
     "NumberPosesPerFragment": 5,
@@ -16,8 +16,8 @@
     },
     "UseClusterBasedPoseFiltering": true,
     "DistanceThresholdClustering": 1.5,
-    "NumberThreads": 128,
+    "NumberThreads": 256,
     "UseHyde": true,
     "Hyde": "hydescorer-2.0.0-Linux-x64/hydescorer",
-    "HydeDisplacementCutoff": 2.0
+    "HydeDisplacementCutoff": 2.5
 }
