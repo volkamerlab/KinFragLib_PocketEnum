@@ -169,6 +169,9 @@ temp/
 # results
 results/
 
+#wandb
+
+wandb
 
 # data files
 
