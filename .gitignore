@@ -177,4 +177,14 @@ wandb
 
 *.sdf
 *.csv
+*.zip
+
+.DS_Store
+
+FlexX.app/
+Hydescorer.app/
+
+KinFragLib/
+
+
 
