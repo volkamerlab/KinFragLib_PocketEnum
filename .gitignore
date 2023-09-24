@@ -164,3 +164,14 @@ data/docking/
 data/templates/
 data/fragments/
 statistics.txt
+temp/
+
+# results
+results/
+
+
+# data files
+
+*.sdf
+*.csv
+

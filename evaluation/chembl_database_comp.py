@@ -59,7 +59,7 @@ def most_similar_chembl_ligand(ligand_inchi, chembl):
 
 USE_MORGAN = False
 CHEMBL_PATH = 'evaluation/chembl_33.sdf'
-COMPOUNDS_PATH = 'final_results/3amb/results.sdf'
+COMPOUNDS_PATH = 'results_thesis/3amb/results.sdf'
 OUTPATH = 'evaluation/chembl_most_similar_rdkit.csv'
 
 # read chembl data
