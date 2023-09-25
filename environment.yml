@@ -3,7 +3,7 @@ channels:
   - conda-forge
 dependencies:
   # Base dependencies
-  - python
+  - python=3.8
   - pip
   # Package dependencies
   - wandb

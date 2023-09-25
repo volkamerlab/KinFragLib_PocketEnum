@@ -18,7 +18,7 @@ CONDA_SUBDIR=osx-64 conda env create -f environment.yml
 ```
 Activate the new environment:
 ```bash
-conda activate kffl
+conda activate king_frag_lib_pocket_enum
 ```
 
 Download and install `KinFragLib` package:
@@ -29,7 +29,7 @@ cd KinFragLib
 git checkout custom-kinfraglib
 cd ..
 # now we can continue installing the package
-pip install -e KinaseFocusedFragmentLibrary
+pip install -e KinFragLib
 ```
 
 ### Input
@@ -38,9 +38,13 @@ pip install -e KinaseFocusedFragmentLibrary
 
 ### Run subpocket based docking programm
 ```bash
-./src/fragment_docking.py -d <JSON_definition_file> -o <JSON_outputfile> -r <path_to_results_folder>
+python src/fragment_docking.py -d <JSON_definition_file> -o <JSON_outputfile> -r <path_to_results_folder>
 ```
 for help run:
 ```bash
-./src/fragment_docking.py -h
+python src/fragment_docking.py -h
 ```
+
+Note: The process can be tracked on https://wandb.ai/home:
+    To enable this, just run the subpocket based docking porgram (as instructed) and follow the instruction (either select (1) to create an account or (2) to login if an account exists already)
+If this is not wanted choose the option (3)

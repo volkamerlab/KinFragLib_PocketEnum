@@ -5,7 +5,7 @@ from rdkit import Chem
 from pathlib import Path
 import logging
 import time
-import os
+import os,sys
 import wandb 
 import argparse
 
@@ -19,7 +19,7 @@ if __name__ == '__main__':
 
     # parse command line arguments
     parser = argparse.ArgumentParser(
-                    prog='Subpocket-based docking',
+                    prog=sys.argv[0],
                     description='Generates compounds for a given kinase')
     parser.add_argument('-d', '--definitions', default='definitions.json', help='JSON file with program configuration')
     parser.add_argument('-o', '--output', default='output.json', help='Name of output JSON file with program statistics')
@@ -49,10 +49,9 @@ if __name__ == '__main__':
     clusted_pose_filter_dist_threshold = definitions.get('DistanceThresholdClustering') or 1.5 # threshold that should be used for pose clustering
 
     # init logging
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
     wandb.init(
         # Set the project where this run will be logged
-        entity="kinase_pocket_enum",
         name=definitions['pdbCode'], 
         project="subpocket_based_docking_kinases")
 
