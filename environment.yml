@@ -1,0 +1,33 @@
+name: king_frag_lib_pocket_enum
+channels:
+  - conda-forge
+dependencies:
+  # Base dependencies
+  - python=3.8
+  - pip
+  # Package dependencies
+  - wandb
+  - biopandas
+  - chembl_webresource_client
+  - ijson
+  - ipywidgets>=7.5
+  - jupyterlab
+  - matplotlib
+  - numpy
+  - pandas=1.1.2
+  - rdkit=2021.09 #rdkit=2020.03.3 # https://github.com/rdkit/rdkit/issues/4425 , https://github.com/rdkit/rdkit/pull/4426
+  - scikit-learn
+  - seaborn
+  - lich::syba
+  - redo
+  - opencadd
+  ## CI tests
+  # Workaround for https://github.com/computationalmodelling/nbval/issues/153
+  - pytest 5.*
+  - pytest-xdist
+  - nbval
+  - shyaml
+  - pip:
+    - black-nb
+    # KinFragLib itself
+    - https://github.com/volkamerlab/kinfraglib/archive/master.tar.gz

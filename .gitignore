@@ -164,3 +164,28 @@ data/docking/
 data/templates/
 data/fragments/
 statistics.txt
+temp/
+
+# results
+results/
+
+#wandb
+
+wandb
+
+# data files
+
+*.sdf
+*.csv
+*.zip
+
+.DS_Store
+
+FlexX.app/
+Hydescorer.app/
+
+KinFragLib/
+
+output.json
+
+

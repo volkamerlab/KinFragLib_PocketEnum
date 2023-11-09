@@ -201,7 +201,7 @@ def template_docking(path_fragment, path_template, path_config, path_output, pat
             capture_output=True,  # needed to capture output text
         )
     if print_output:
-        print(output_text.stderr)
+        print(output_text)
 
     # read fragments poses from sdf
     docked_fragments = []

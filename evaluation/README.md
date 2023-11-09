@@ -1,0 +1,3 @@
+- ChEMBL 33 was downloaded from: https://ftp.ebi.ac.uk/pub/databases/chembl/ChEMBLdb/releases/chembl_33/
+- pka_chembl.csv was obtained from: https://www.ebi.ac.uk/chembl/web_components/explore/activities/STATE_ID:gk1QlRWDkYhnzYbG8Ck6fw==
+- crystral_struct_first_compounds.csv dowloaded from: https://pubs.acs.org/doi/10.1021/acs.jmedchem.2c00813 
