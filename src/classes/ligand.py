@@ -7,7 +7,7 @@ import logging
 
 from brics_rules import is_brics_bond
 from classes.recombination import Recombination
-from docking_utils import calc_distance_matrix
+from classes._utils import calc_distance_matrix
 
 class Pose:
     def __init__(self, ROMol, docking_score):
@@ -115,14 +115,6 @@ class Ligand:
         choosen_poses = [min(self.poses, key=lambda p: p.docking_score)]
         self.poses.remove(choosen_poses[0])
 
-        # -----> TODO REMOVE IF FIXED
-        for pose in self.poses:
-                if choosen_poses[0].ROMol.GetNumAtoms() != pose.ROMol.GetNumAtoms():
-                    # this should't happen TODO should be fixed by cleaning files
-                    print("Couldn't match pose")
-                    pose.ROMol = choosen_poses[0].ROMol
-        # -------|
-
         # define mapping of atoms => avoid a maximal common substructure search (not needed because the structures should be the same)
         atom_mapping = [[j, j] for j in range(choosen_poses[0].ROMol.GetNumAtoms())]
 
@@ -227,6 +219,7 @@ class Ligand:
                 counter_recombinations += 1
                 self.recombinations.append(new_rec)
         return counter_recombinations, counter_unambiguous_bonds
+    
     
 def from_recombination(recombination) -> Ligand:
     """
