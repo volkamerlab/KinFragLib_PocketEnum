@@ -1,4 +1,5 @@
 import json
+import os
 from pathlib import Path
 
 from classes.filters import Filter
@@ -63,13 +64,12 @@ class Config:
         self.num_threads: int = None
         self.path_temp = None
         self.path_results = None
+        self._result = None
 
-    def parse(self, config_file, path_results) -> None:
+    def parse(self, config_file) -> None:
         """
         Parses the configuration file
 
-        Parameterspath_results:
-            Path to folder where reults should be placed
         ----------
         config_file: Path
             Path to JSON-config file
@@ -101,10 +101,39 @@ class Config:
         self.filters = [Filter(name, values) for name, values in definitions['Filters'].items()]
 
         # Paths
-        HERE = Path().resolve()
-        self.path_temp = HERE / 'temp' / definitions['pdbCode']
         self.path_kinfraglib = Path(definitions['KinFragLib'])
         self.path_flexx = Path(definitions['FlexX'])
-        self.path_structure_config = Path(definitions['Config']) / definitions['pdbCode']
-        self.path_results = HERE / path_results / definitions['pdbCode']
+        self.path_structure_config = Path(definitions['Config']) / self.pdb_code
         self.path_hyde = Path(definitions['Hyde']) if self.use_hyde else None
+
+    def initialize_folders(self, path_results) -> None:
+        """
+        Checks if results folder exists, creates the temp folder and the pdb-code specific folders
+
+        Parameters
+        ----------
+        path_results: Path
+            Path to folder where reults should be placed
+        """
+        HERE = Path().resolve()
+
+        # create temp folder if it does not exists
+        
+        if not os.path.exists(HERE / 'temp'):
+            os.mkdir(HERE / 'temp')
+        self.path_temp = HERE / 'temp' / self.pdb_code
+
+        if not os.path.exists(self.path_temp):
+            os.mkdir(self.path_temp)
+
+        if not os.path.exists(HERE / path_results):
+            raise OSError(f"Result folder {str(HERE / path_results)} does not exists")
+        
+        self.path_results = HERE / path_results / self.pdb_code
+
+        if not os.path.exists(self.path_results):
+            os.mkdir(self.path_results)
+        else:
+            # clear file, if it already exists
+            with open(self.path_results/ 'results.sdf', 'wt') as file:
+                pass

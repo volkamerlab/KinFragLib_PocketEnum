@@ -1,6 +1,5 @@
 from pathlib import Path
 from kinfraglib import utils, filters
-import docking_utils
 from rdkit import Chem
 from pathlib import Path
 import logging
@@ -10,11 +9,15 @@ import wandb
 import argparse
 
 import json
-import threading_docking
-from functools import partial
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from classes.config import Config
+from classes.ligand import Ligand
+from classes.recombination import Recombination
+from tasks.core_docking import core_docking_task
+from tasks.template_docking import template_docking_task
+
+from _utils import write_all_poses_to_file, write_violations_to_file, append_ligands_to_file
 
 if __name__ == '__main__':
 
@@ -30,7 +33,8 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     config = Config()
-    config.parse(args.definitions, args.results)
+    config.parse(args.definitions)
+    config.initialize_folders(args.results)
 
     # init logging
     logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
@@ -38,23 +42,6 @@ if __name__ == '__main__':
         # Set the project where this run will be logged
         name=config.pdb_code, 
         project="subpocket_based_docking_kinases")
-
-    HERE = Path().resolve()
-    # create temp folder if it does not exists
-    if not os.path.exists(HERE / 'temp'):
-        os.mkdir(HERE / 'temp')
-    if not os.path.exists(config.path_temp):
-        os.mkdir(config.path_temp)
-
-    if not os.path.exists(HERE / args.results):
-        raise OSError(f"Result folder {str(HERE / args.results)} does not exists")
-    
-    if not os.path.exists(config.path_results):
-        os.mkdir(config.path_results)
-    else:
-        # clear file, if it already exists
-        with open(config.path_results/ 'results.sdf', 'wt') as file:
-            pass
 
     start_time_all = time.time()
 
@@ -122,8 +109,8 @@ if __name__ == '__main__':
     for i in fragment_library[config.core_subpocket].index:
         smiles = fragment_library[config.core_subpocket]['smiles'][i]
         smiles_dummy = fragment_library[config.core_subpocket]['smiles_dummy'][i]
-        core_fragments.append(docking_utils.Ligand(fragment_library[config.core_subpocket]['ROMol'][i], {config.core_subpocket: i}, 
-                                                   docking_utils.Recombination([config.core_subpocket + "_" + str(i)], [], {config.core_subpocket: smiles}, {config.core_subpocket: smiles_dummy}), 
+        core_fragments.append(Ligand(fragment_library[config.core_subpocket]['ROMol'][i], {config.core_subpocket: i}, 
+                                                   Recombination([config.core_subpocket + "_" + str(i)], [], {config.core_subpocket: smiles}, {config.core_subpocket: smiles_dummy}), 
                                                    {config.core_subpocket: smiles_dummy}, {config.core_subpocket: smiles}))
 
     # core docking 
@@ -138,7 +125,7 @@ if __name__ == '__main__':
 
     with ThreadPoolExecutor(config.num_threads) as executor:
         # submit core docking tasks
-        features = [executor.submit(threading_docking.core_docking_task, config, core_fragment) for core_fragment in core_fragments]
+        features = [executor.submit(core_docking_task, config, core_fragment) for core_fragment in core_fragments]
         # iterate over all completetd tasks
         for feature in as_completed(features):
             try:
@@ -168,7 +155,7 @@ if __name__ == '__main__':
     output_logs['SuccesfullDockingRuns']['SP0'] = len(docking_results)
 
     # write violations so sdf file
-    docking_utils.write_violations_to_file(violations, config.path_results / 'violations_SP0.sdf')
+    write_violations_to_file(violations, config.path_results / 'violations_SP0.sdf')
 
     logging.info("Runtime: %s" % (time.time() - start_time))
 
@@ -201,10 +188,10 @@ if __name__ == '__main__':
         output_logs['ChosenPoses']['SP' + str(config.subpockets.index(subpocket))] = sum(len(mol.poses) for mol in docking_results)
 
         # store the best pose of a docked molecule if it consists of more than 1 fragment in the overall result file
-        docking_utils.append_ligands_to_file(docking_results_pre_filtering, docking_results, config.path_results/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
+        append_ligands_to_file(docking_results_pre_filtering, docking_results, config.path_results/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
 
         # store all poses of all docked molecules in one file for the current subpocket iteration
-        docking_utils.write_all_poses_to_file(docking_results_pre_filtering, docking_results, config.path_results/ ('SP' + str(config.subpockets.index(subpocket)) + '.sdf'))
+        write_all_poses_to_file(docking_results_pre_filtering, docking_results, config.path_results/ ('SP' + str(config.subpockets.index(subpocket)) + '.sdf'))
 
 
         # recombining
@@ -245,7 +232,7 @@ if __name__ == '__main__':
 
         with ThreadPoolExecutor(config.num_threads) as executor:
             # submit template docking tasks
-            features = [executor.submit(threading_docking.template_docking_task, config, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
+            features = [executor.submit(template_docking_task, config, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
             # iterate over all completetd tasks
             for count, feature in enumerate(as_completed(features)):
                 try:
@@ -279,10 +266,10 @@ if __name__ == '__main__':
         output_logs['DockingRuns']['SP' + str(config.subpockets.index(subpocket) + 1)] = num_docking_runs
         output_logs['SuccesfullDockingRuns']['SP' + str(config.subpockets.index(subpocket) + 1)] = num_succ_docking_runs
         # write violations so sdf file
-        docking_utils.write_violations_to_file(violations, config.path_results / ('violations_SP' + str(config.subpockets.index(subpocket) + 1) + '.sdf'))
+        write_violations_to_file(violations, config.path_results / ('violations_SP' + str(config.subpockets.index(subpocket) + 1) + '.sdf'))
 
     # store all poses of all docked molecules in one file for the current subpocket iteration
-    docking_utils.write_all_poses_to_file(docking_results, docking_results, config.path_results/ ('SP' + str(len(config.subpockets)) + '.sdf'))
+    write_all_poses_to_file(docking_results, docking_results, config.path_results/ ('SP' + str(len(config.subpockets)) + '.sdf'))
 
     output_logs['Unsuccesful3DGenerations'] = [Chem.MolToSmiles(mol.ROMol) for mol in unsuccesfull_3d_generations]
 
@@ -305,7 +292,6 @@ if __name__ == '__main__':
         logging.debug("Best recombination: " + str(list(docking_results[0].fragment_ids.items())) + " Score: " + str(docking_results[0].min_binding_affinity or docking_results[0].min_docking_score))
 
         # store generated ligands
-        docking_utils.append_ligands_to_file(docking_results, docking_results, config.path_results/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
+        append_ligands_to_file(docking_results, docking_results, config.path_results/ 'results.sdf', lambda l: len(l.fragment_ids) > 1)
 
         
-
