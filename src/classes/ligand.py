@@ -6,7 +6,7 @@ from rdkit.ML.Cluster import Butina
 import logging
 
 from brics_rules import is_brics_bond
-from molecules import Recombination
+from classes.recombination import Recombination
 from docking_utils import calc_distance_matrix
 
 class Pose:
@@ -34,6 +34,7 @@ class Ligand:
         self.mean_hyde_displacement_undropped = 0 # mean of displacement of all poses that were not dropped due to displacement violation
         self.mean_hyde_displacement = 0  # mean of displacement of all poses (including violations)
         self.poses_pre_filtered = None
+
     def to_sdf(self, sdf_path):
         """
         Writes the current object to a sdf file.
@@ -80,6 +81,7 @@ class Ligand:
             self.min_binding_affinity = pose.binding_affinity_lower
         self.poses.append(pose)
         return
+    
     def get_best_pose(self) -> Pose:
         """
         Get Pose with the best docking score

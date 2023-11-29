@@ -3,8 +3,12 @@ import docking_utils
 import logging
 from rdkit import Chem
 
-def core_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONFIG, PATH_FLEXX, 
-                      PATH_HYDE, hyde_cutoff, core_subpocket: str, core_fragment):
+from classes.config import Config
+from classes.recombination import Recombination
+from classes.ligand import Pose
+from classes import ligand
+
+def core_docking_task(config: Config, core_fragment):
     """
     runs a FlexX core docking task. It should be used for multithreading.
 
@@ -14,49 +18,39 @@ def core_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONFIG, 
 
     Parameters
     ----------
-    PATH_TO_SDF_FRAGMENTS: pathlib.path
-        Path to directory where sdf files of the core fragments are stored intermediately
-    path_config: pathlib.path
-        Path to FlexX-config file.
-    path_output: pathlib.path
-        Path to diectory of output files
-    path_flexx: pathlib.path
-        Path to FlexX
-    PATH_HYDE: pathlib.path
-        Path to Hyde
-    core_subpocket: str
-        Subpocket where to place the core fragment
+    config: Config
+        Object, containing all neccessary information
     core_fragment: Ligand
         Fragment that should be docked in this task
     
     """
     thread_id = threading.get_ident()
-    logging.debug('Docking of ' + core_subpocket + "-Fragment: " + str(core_fragment.fragment_ids[core_subpocket]))
+    logging.debug('Docking of ' + config.core_subpocket + "-Fragment: " + str(core_fragment.fragment_ids[config.core_subpocket]))
     # safe fragment as sdf file
-    if not core_fragment.to_sdf(PATH_TO_TEMP/ ('cand_thread_' + str(thread_id) + '_core_fragment.sdf')):
+    if not core_fragment.to_sdf(config.path_temp/ ('cand_thread_' + str(thread_id) + '_core_fragment.sdf')):
         # could not generate 3D-conformation
         logging.error('Could not write Fragemnt: ' + str(core_fragment.fragment_ids) + ' to files due to 3d-generation-error')
         return [core_fragment]
 
-    res_docking = docking_utils.core_docking(PATH_TO_TEMP/ ('cand_thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_DOCKING_CONFIGS / (core_subpocket + '.flexx'), 
-                                             PATH_TO_TEMP / ('dock_thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_FLEXX, core_fragment.fragment_ids, core_fragment.smiles_dummy, core_fragment.smiles)
+    res_docking = docking_utils.core_docking(config.path_temp/ ('cand_thread_' + str(thread_id) + '_core_fragment.sdf'), config.path_temp / (config.core_subpocket + '.flexx'), 
+                                             config.path_temp / ('dock_thread_' + str(thread_id) + '_core_fragment.sdf'), config.path_flexx, core_fragment.fragment_ids, core_fragment.smiles_dummy, core_fragment.smiles)
     
     violations = []  # track violations
     sum_hyde_displacement_violations = 0   # used to calculate the mean displacement of hyde
     sum_hyde_displacement = 0   # used to calculate the mean displacement of hyde
 
-    if PATH_HYDE and len(res_docking):
+    if config.use_hyde and len(res_docking):
         # if path to hyde is given: perform hyde_scoring and opt.
-        res_hyde = docking_utils.hyde_scoring(PATH_TO_TEMP / ('dock_thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE_CONFIG / (core_subpocket + '.hydescorer'), 
-                                              PATH_TO_TEMP / ('hyde_thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_HYDE,
+        res_hyde = docking_utils.hyde_scoring(config.path_temp / ('dock_thread_' + str(thread_id) + '_core_fragment.sdf'), config.path_structure_config / (config.core_subpocket + '.hydescorer'), 
+                                              config.path_temp / ('hyde_thread_' + str(thread_id) + '_core_fragment.sdf'), config.path_hyde,
                                               core_fragment.fragment_ids, core_fragment.smiles_dummy, core_fragment.smiles)
 
-        docking_utils.remove_files(PATH_TO_TEMP / ('dock_thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_TEMP/ ('cand_thread_' + str(thread_id) + '_core_fragment.sdf'), 
-                                   PATH_TO_TEMP / ('hyde_thread_' + str(thread_id) + '_core_fragment.sdf'))
+        docking_utils.remove_files(config.path_temp / ('dock_thread_' + str(thread_id) + '_core_fragment.sdf'), config.path_temp/ ('cand_thread_' + str(thread_id) + '_core_fragment.sdf'), 
+                                   config.path_temp / ('hyde_thread_' + str(thread_id) + '_core_fragment.sdf'))
 
         for i, (conformer_docking, conformer_hyde) in enumerate(zip(res_docking, res_hyde)):   # safe every resulting pose within the fragment
             displacement = docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])[0]
-            if displacement > hyde_cutoff:
+            if displacement > config.hyde_displacement_cutoff:
                 logging.warning(f"""VIOLATION: RMSD between HYDE and docking pose {core_fragment.fragment_ids} {i}: 
                                 {displacement}""")
                 violations.append((conformer_docking, conformer_hyde))
@@ -64,15 +58,15 @@ def core_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONFIG, 
                 # drop pose if rmds > hyde_cutoff
                 continue
             sum_hyde_displacement += displacement
-            pose = docking_utils.Pose(conformer_hyde, float(conformer_hyde.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
+            pose = Pose(conformer_hyde, float(conformer_hyde.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
             pose.binding_affinity_upper = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]'))
             pose.binding_affinity_lower = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]')) 
             core_fragment.add_pose(pose)
     else:
-        docking_utils.remove_files(PATH_TO_TEMP / ('dock_thread_' + str(thread_id) + '_core_fragment.sdf'), PATH_TO_TEMP/ ('cand_thread_' + str(thread_id) + '_core_fragment.sdf'))
+        docking_utils.remove_files(config.path_temp / ('dock_thread_' + str(thread_id) + '_core_fragment.sdf'), config.path_temp/ ('cand_thread_' + str(thread_id) + '_core_fragment.sdf'))
 
         for conformer_docking in res_docking:   # safe every resulting pose within the fragment
-            pose = docking_utils.Pose(conformer_docking, float(conformer_docking.GetProp('BIOSOLVEIT.DOCKING_SCORE'))) 
+            pose = Pose(conformer_docking, float(conformer_docking.GetProp('BIOSOLVEIT.DOCKING_SCORE'))) 
             core_fragment.add_pose(pose)
 
     logging.debug(str(len(core_fragment.poses)) + ' poses have been generated')
@@ -87,8 +81,7 @@ def core_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONFIG, 
     # return empty list if no pose was found
     return []
 
-def template_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONFIG, PATH_FLEXX, PATH_HYDE, 
-                          hyde_cutoff, subpocket, recombination: docking_utils.Recombination, poses):
+def template_docking_task(config: Config, subpocket: str, recombination: Recombination, poses: list):
     """
     runs a FlexX template docking task. It should be used for multithreading.
 
@@ -98,18 +91,8 @@ def template_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONF
 
     Parameters
     ----------
-    PATH_TO_SDF_FRAGMENTS: pathlib.path
-        Path to directory where sdf files of thefragments are stored intermediately
-    PATH_TO_DOCKING_CONFIGS: pathlib.path
-        Path to FlexX-config file.
-    PATH_TO_DOCKING_RESULTS: pathlib.path
-        Path to diectory of output files
-    PATH_FLEXX: pathlib.path
-        Path to FlexX
-    PATH_HYDE: pathlib.path
-        Path to Hyde    
-    PATH_TO_TEMPLATES: pathlib.path
-        Path to directory where sdf files of the templates are stored intermediately
+    config: Config
+        Object, containing all neccessary information
     subpocket: str
         Subpocket where to place the fragment
     recombination: Recombination
@@ -120,10 +103,10 @@ def template_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONF
     """
     thread_id = threading.get_ident()
     logging.debug('Template docking of Recombination: ' + str(recombination.fragments))
-    fragment = docking_utils.from_recombination(recombination)
+    fragment = ligand.from_recombination(recombination)
 
     # write recombination that should be docked to file
-    if not fragment.to_sdf(PATH_TO_TEMP /('cand_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf')):
+    if not fragment.to_sdf(config.path_temp /('cand_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf')):
         logging.error('Could not write fragemnt: ' + str(fragment.fragment_ids) + ' to files due to 3d-generation-error')
         return [fragment]
     
@@ -137,31 +120,31 @@ def template_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONF
     for i, pose in enumerate(poses):
         logging.debug('Template ' + str(i + 1) + ' / ' + str(len(poses)))
         # write template to sdf file
-        with Chem.SDWriter(str(PATH_TO_TEMP / ('temp_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'))) as w:
+        with Chem.SDWriter(str(config.path_temp / ('temp_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'))) as w:
             w.write(pose.ROMol)
         # template docking (FlexX)
-        res_docking = docking_utils.template_docking(PATH_TO_TEMP /('cand_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), PATH_TO_TEMP / ('temp_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), 
-                                                     PATH_TO_DOCKING_CONFIGS / (subpocket + '.flexx'), PATH_TO_TEMP / ('dock_thread_' + str(thread_id) + '_' + 'fragments.sdf'), PATH_FLEXX,
+        res_docking = docking_utils.template_docking(config.path_temp /('cand_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), config.path_temp / ('temp_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'), 
+                                                     config.path_structure_config / (subpocket + '.flexx'), config.path_temp / ('dock_thread_' + str(thread_id) + '_' + 'fragments.sdf'), config.path_flexx,
                                                      fragment.fragment_ids, fragment.smiles_dummy, fragment.smiles)
         
         succesfully_docked += 1 if len(res_docking) else 0 
 
-        if len(res_docking) and PATH_HYDE:
-            res_hyde = docking_utils.hyde_scoring(PATH_TO_TEMP / ('dock_thread_' + str(thread_id) + '_' + 'fragments.sdf'), PATH_HYDE_CONFIG / (subpocket + '.hydescorer'), 
-                                                  PATH_TO_TEMP / ('hyde_thread_' + str(thread_id) + '_fragment.sdf'), PATH_HYDE,
+        if len(res_docking) and config.use_hyde:
+            res_hyde = docking_utils.hyde_scoring(config.path_temp / ('dock_thread_' + str(thread_id) + '_' + 'fragments.sdf'), config.path_structure_config / (subpocket + '.hydescorer'), 
+                                                  config.path_temp / ('hyde_thread_' + str(thread_id) + '_fragment.sdf'), config.path_hyde,
                                                   fragment.fragment_ids, fragment.smiles_dummy, fragment.smiles)
             # remove files containg docking results and template
-            docking_utils.remove_files(PATH_TO_TEMP / ('dock_thread_' + str(thread_id) + '_' + 'fragments.sdf'), PATH_TO_TEMP / ('temp_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'),
-                                       PATH_TO_TEMP / ('hyde_thread_' + str(thread_id) + '_fragment.sdf'))
+            docking_utils.remove_files(config.path_temp / ('dock_thread_' + str(thread_id) + '_' + 'fragments.sdf'), config.path_temp / ('temp_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'),
+                                       config.path_temp / ('hyde_thread_' + str(thread_id) + '_fragment.sdf'))
 
             # safe resulting poses within fragment
             for i, (conformer_hyde, conformer_docking) in enumerate(zip(res_hyde, res_docking)):   # safe every resulting pose within the fragment
-                pose = docking_utils.Pose(conformer_hyde, float(conformer_hyde.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
+                pose = Pose(conformer_hyde, float(conformer_hyde.GetProp('BIOSOLVEIT.DOCKING_SCORE')))
                 pose.binding_affinity_upper = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]'))
                 pose.binding_affinity_lower = float(conformer_hyde.GetProp('BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]')) 
                 rmsd = docking_utils.calc_distance_matrix([conformer_hyde, conformer_docking])[0]
 
-                if rmsd > hyde_cutoff:
+                if rmsd > config.hyde_displacement_cutoff:
                     violations.append((conformer_docking, conformer_hyde))
                     sum_hyde_displacement_violations += rmsd
                     logging.warning(f"VIOLATION: RMSD between HYDE and docking pose {fragment.fragment_ids} {i}: {rmsd}")
@@ -170,9 +153,9 @@ def template_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONF
                     fragment.add_pose(pose)
         else:
             # remove files containg docking results and template
-            docking_utils.remove_files(PATH_TO_TEMP / ('dock_thread_' + str(thread_id) + '_' + 'fragments.sdf'), PATH_TO_TEMP / ('temp_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'))
+            docking_utils.remove_files(config.path_temp / ('dock_thread_' + str(thread_id) + '_' + 'fragments.sdf'), config.path_temp / ('temp_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'))
             for conformer in res_docking:   # safe every resulting pose within the fragment
-                pose = docking_utils.Pose(conformer, float(conformer.GetProp('BIOSOLVEIT.DOCKING_SCORE'))) 
+                pose = Pose(conformer, float(conformer.GetProp('BIOSOLVEIT.DOCKING_SCORE'))) 
                 fragment.add_pose(pose)
 
         logging.debug(str(len(fragment.poses)) + ' poses have been generated')
@@ -181,7 +164,7 @@ def template_docking_task(PATH_TO_TEMP,  PATH_TO_DOCKING_CONFIGS, PATH_HYDE_CONF
             logging.debug("Best  score: " + str(fragment.min_binding_affinity or fragment.min_docking_score))
 
     # remove molecule file
-    docking_utils.remove_files(PATH_TO_TEMP /('cand_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'))
+    docking_utils.remove_files(config.path_temp /('cand_thread_' + str(thread_id) + '_' + subpocket + '_fragment.sdf'))
 
     if len(fragment.poses):
         fragment.mean_hyde_displacement_undropped = sum_hyde_displacement / len(fragment.poses)

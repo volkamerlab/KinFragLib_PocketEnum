@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from filters import Filter
+from classes.filters import Filter
 
 class Config:
     """
@@ -102,7 +102,6 @@ class Config:
 
         # Paths
         HERE = Path().resolve()
-        print(f"Here path {HERE}")
         self.path_temp = HERE / 'temp' / definitions['pdbCode']
         self.path_kinfraglib = Path(definitions['KinFragLib'])
         self.path_flexx = Path(definitions['FlexX'])

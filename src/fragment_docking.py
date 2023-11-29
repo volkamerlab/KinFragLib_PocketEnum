@@ -133,15 +133,12 @@ if __name__ == '__main__':
     unsuccesfull_3d_generations = []
     start_time = time.time()
 
-    # create partial docking task to avoid function calls with many of 
-    core_docking_task = partial(threading_docking.core_docking_task, config.path_temp, config.path_structure_config, config.path_flexx, config.path_hyde, config.hyde_displacement_cutoff)
-
     wandb.log({'total_frags_SP0': len(core_fragments)})
     docking_run_counter = 0
 
     with ThreadPoolExecutor(config.num_threads) as executor:
         # submit core docking tasks
-        features = [executor.submit(core_docking_task, config.core_subpocket, core_fragment) for core_fragment in core_fragments]
+        features = [executor.submit(threading_docking.core_docking_task, config, core_fragment) for core_fragment in core_fragments]
         # iterate over all completetd tasks
         for feature in as_completed(features):
             try:
@@ -247,10 +244,8 @@ if __name__ == '__main__':
         docking_run_counter = 0
 
         with ThreadPoolExecutor(config.num_threads) as executor:
-            # create partial template docking function due to huge amount of arguments
-            task = partial(threading_docking.template_docking_task, config.path_temp, config.path_structure_config, config.path_flexx, config.path_hyde, config.hyde_displacement_cutoff)
             # submit template docking tasks
-            features = [executor.submit(task, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
+            features = [executor.submit(threading_docking.template_docking_task, config, subpocket, recombination, ligand.poses) for ligand in candidates for recombination in ligand.recombinations]
             # iterate over all completetd tasks
             for count, feature in enumerate(as_completed(features)):
                 try:
