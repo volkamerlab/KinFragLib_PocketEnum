@@ -38,11 +38,11 @@ pip install -e KinFragLib
 
 ### Run subpocket based docking programm
 ```bash
-python src/fragment_docking.py -d <JSON_definition_file> -o <JSON_outputfile> -r <path_to_results_folder>
+python3 src/fragment_docking.py -d <JSON_definition_file> -o <JSON_outputfile> -r <path_to_results_folder>
 ```
 for help run:
 ```bash
-python src/fragment_docking.py -h
+python3 src/fragment_docking.py -h
 ```
 
 Note: The process can be tracked on https://wandb.ai/home:
