@@ -7,9 +7,9 @@ import subprocess
 
 from classes.config import Config
 from classes.ligand import Pose, Ligand
-from _utils import remove_files
+from utils.io_handling import remove_files
 from tasks._utils import hyde_scoring
-from classes._utils import calc_distance_matrix
+from utils._utils import calc_distance_matrix
 
 
 def core_docking_task(config: Config, core_fragment):

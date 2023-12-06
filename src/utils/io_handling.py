@@ -2,7 +2,6 @@ from pathlib import Path
 import os
 
 from rdkit import Chem
-from rdkit.Chem import rdMolAlign
 
 from classes.ligand import Ligand
 

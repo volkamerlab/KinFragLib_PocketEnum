@@ -5,9 +5,9 @@ from rdkit.ML.Cluster import Butina
 
 import logging
 
-from brics_rules import is_brics_bond
+from utils.brics_rules import is_brics_bond
 from classes.recombination import Recombination
-from classes._utils import calc_distance_matrix
+from utils._utils import calc_distance_matrix
 
 class Pose:
     def __init__(self, ROMol, docking_score):

@@ -9,8 +9,8 @@ from classes.config import Config
 from classes.recombination import Recombination
 from classes.ligand import Pose, Ligand
 from classes import ligand
-from classes._utils import calc_distance_matrix
-from _utils import remove_files
+from utils._utils import calc_distance_matrix
+from utils.io_handling import remove_files
 from tasks._utils import hyde_scoring
 
 def template_docking_task(config: Config, subpocket: str, recombination: Recombination, poses: list):

@@ -4,6 +4,8 @@ from rdkit import Chem
 from pathlib import Path
 
 from classes.ligand import Ligand
+from classes.config import Config
+from classes.recombination import Recombination
 
 def hyde_scoring(path_docking_results: Path, path_config: Path, path_output: Path, path_hyde: Path, ligand: Ligand, print_output=False) -> list:
     """
@@ -59,3 +61,32 @@ def hyde_scoring(path_docking_results: Path, path_config: Path, path_output: Pat
             molecule_opt.SetProp('BIOSOLVEIT.DOCKING_SCORE', molecule_docking.GetProp('BIOSOLVEIT.DOCKING_SCORE'))
             opt_fragments.append(molecule_opt)
     return opt_fragments
+
+def prepare_core_fragments(fragment_library: dict, config: Config) -> list:
+    """
+    Initializes all core fragments from the fragment library
+
+    Returns
+    ----------
+    List of all core fragments as Ligand
+
+    Parameters
+    ----------
+    fragment_library: dict
+        KinFragLib fragment library
+    config: Config
+        Config object, storing program configurations
+    """
+
+    core_fragments = []
+
+    # prepare all core fragments
+    for i in fragment_library[config.core_subpocket].index:
+        smiles = fragment_library[config.core_subpocket]['smiles'][i]
+        smiles_dummy = fragment_library[config.core_subpocket]['smiles_dummy'][i]
+        fragment_recombination = Recombination([config.core_subpocket + "_" + str(i)], [], {config.core_subpocket: smiles}, {config.core_subpocket: smiles_dummy})
+        core_fragments.append(Ligand(fragment_library[config.core_subpocket]['ROMol'][i], {config.core_subpocket: i}, 
+                                                   fragment_recombination, 
+                                                   {config.core_subpocket: smiles_dummy}, {config.core_subpocket: smiles}))
+    
+    return core_fragments

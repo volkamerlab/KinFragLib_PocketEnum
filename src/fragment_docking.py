@@ -1,10 +1,8 @@
-from pathlib import Path
 from kinfraglib import utils, filters
 from rdkit import Chem
-from pathlib import Path
 import logging
 import time
-import os,sys
+import sys
 import wandb 
 import argparse
 
@@ -12,15 +10,13 @@ import json
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from classes.config import Config
-from classes.ligand import Ligand
-from classes.recombination import Recombination
 from tasks.core_docking import core_docking_task
 from tasks.template_docking import template_docking_task
+from tasks._utils import prepare_core_fragments
 
-from _utils import write_all_poses_to_file, write_violations_to_file, append_ligands_to_file
+from utils.io_handling import write_all_poses_to_file, write_violations_to_file, append_ligands_to_file
 
 if __name__ == '__main__':
-
 
     # parse command line arguments
     parser = argparse.ArgumentParser(
@@ -32,12 +28,13 @@ if __name__ == '__main__':
 
     args = parser.parse_args()
 
+    # parse configs
     config = Config()
     config.parse(args.definitions)
     config.initialize_folders(args.results)
 
     # init logging
-    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.INFO, datefmt='%Y-%m-%d %H:%M:%S')
+    logging.basicConfig(format='%(asctime)s - %(levelname)s - %(message)s', level=logging.DEBUG, datefmt='%Y-%m-%d %H:%M:%S')
     wandb.init(
         # Set the project where this run will be logged
         name=config.pdb_code, 
@@ -103,15 +100,11 @@ if __name__ == '__main__':
 
     logging.info('Core docking of ' + str(len(fragment_library[config.core_subpocket])) + ' ' + config.core_subpocket + '-Fragments')
 
-    core_fragments = []
+    if config.core_subpocket not in fragment_library:
+        logging.error('Fragment library must at least contain 1 core fragment')
+        raise Exception('Fragment library must at least contain 1 core fragment but was 0')
 
-    # prepare all core fragments
-    for i in fragment_library[config.core_subpocket].index:
-        smiles = fragment_library[config.core_subpocket]['smiles'][i]
-        smiles_dummy = fragment_library[config.core_subpocket]['smiles_dummy'][i]
-        core_fragments.append(Ligand(fragment_library[config.core_subpocket]['ROMol'][i], {config.core_subpocket: i}, 
-                                                   Recombination([config.core_subpocket + "_" + str(i)], [], {config.core_subpocket: smiles}, {config.core_subpocket: smiles_dummy}), 
-                                                   {config.core_subpocket: smiles_dummy}, {config.core_subpocket: smiles}))
+    core_fragments = prepare_core_fragments(fragment_library, config)
 
     # core docking 
     docking_results = []
@@ -162,6 +155,9 @@ if __name__ == '__main__':
     # ===== TEMPLATE DOCKING ======
 
     for subpocket in config.subpockets:
+        if subpocket not in fragment_library:
+            logging.warning(f'Fragment library contains 0 {subpocket}-fragments, continue with next subpocket')
+
         logging.info('Template docking of ' + str(len(fragment_library[subpocket])) + ' ' + subpocket + '-Fragments')
 
         # filtering

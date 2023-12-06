@@ -10,7 +10,7 @@ from rdkit.Chem import AllChem
 from rdkit.Chem import rdMolAlign
 
 from kinfraglib import utils, filters
-from brics_rules import is_brics_bond
+from utils.brics_rules import is_brics_bond
 import logging
 
 def core_docking(path_fragment, path_config, path_output, path_flexx, fragment_ids, smiles_dummy, smiles, print_output=False):
