@@ -1,5 +1,5 @@
 # KinFragLib_PocketEnum
-KinFragLib_PocketEnum
+This pipeline automatically places and expands fragments in a binding pocket of a given kinase structure – based on a user-defined subpocket path – to generate numerous possible kinase inhibitors. The pipeline allows the user to customize this process by e.g. setting the starting subpocket and the subpocket path for fragment growing and defining thresholds
 
 ## Usage
 
