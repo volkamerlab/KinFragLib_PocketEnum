@@ -4,6 +4,7 @@ from pathlib import Path
 
 from classes.filters import Filter
 
+
 class Config:
     """
     Samples all configurations for a subpocket-based docking run
@@ -30,7 +31,7 @@ class Config:
         If true, a cluster based approach is applied to select docking poses
     cluster_threshold: float = 1.5
         Distance threshold that should be used for pose  (if cluster_based == true)
-    self.use_hyde: bool 
+    self.use_hyde: bool
         If true, hyde scoring is performed after each docking run
     self.path_hyde: Path
         Path to hyde (only required if use_hyde == true)
@@ -78,33 +79,33 @@ class Config:
         """
 
         # load program definitions
-        with open(config_file, 'rt') as json_file:
+        with open(config_file, "rt") as json_file:
             definitions = json.load(json_file)
 
-        self.pdb_code: str = definitions['pdbCode']
-        self.core_subpocket: str = definitions['CoreSubpocket']
-        self.subpockets: list = definitions['Subpockets']
-        self.fragments_per_iteration: int = definitions['NumberFragmentsPerIterations']
-        self.poses_per_fragment: int = definitions['NumberPosesPerFragment']
+        self.pdb_code: str = definitions["pdbCode"]
+        self.core_subpocket: str = definitions["CoreSubpocket"]
+        self.subpockets: list = definitions["Subpockets"]
+        self.fragments_per_iteration: int = definitions["NumberFragmentsPerIterations"]
+        self.poses_per_fragment: int = definitions["NumberPosesPerFragment"]
         self.cluster_based: bool = definitions["UseClusterBasedPoseFiltering"]
-        
+
         if self.cluster_based:
-            self.cluster_threshold = definitions.get('HydeDisplacementCutoff') or 2.5
-        
-        self.use_hyde = definitions['UseHyde']
+            self.cluster_threshold = definitions.get("HydeDisplacementCutoff") or 2.5
+
+        self.use_hyde = definitions["UseHyde"]
 
         if self.use_hyde:
-            self.hyde_displacement_cutoff = definitions.get('HydeDisplacementCutoff') or 2.5
+            self.hyde_displacement_cutoff = definitions.get("HydeDisplacementCutoff") or 2.5
 
-        self.num_threads = definitions.get('NumberThreads')
+        self.num_threads = definitions.get("NumberThreads")
 
-        self.filters = [Filter(name, values) for name, values in definitions['Filters'].items()]
+        self.filters = [Filter(name, values) for name, values in definitions["Filters"].items()]
 
         # Paths
-        self.path_kinfraglib = Path(definitions['KinFragLib'])
-        self.path_flexx = Path(definitions['FlexX'])
-        self.path_structure_config = Path(definitions['Config']) / self.pdb_code
-        self.path_hyde = Path(definitions['Hyde']) if self.use_hyde else None
+        self.path_kinfraglib = Path(definitions["KinFragLib"])
+        self.path_flexx = Path(definitions["FlexX"])
+        self.path_structure_config = Path(definitions["Config"]) / self.pdb_code
+        self.path_hyde = Path(definitions["Hyde"]) if self.use_hyde else None
 
     def initialize_folders(self, path_results) -> None:
         """
@@ -118,22 +119,22 @@ class Config:
         HERE = Path().resolve()
 
         # create temp folder if it does not exists
-        
-        if not os.path.exists(HERE / 'temp'):
-            os.mkdir(HERE / 'temp')
-        self.path_temp = HERE / 'temp' / self.pdb_code
+
+        if not os.path.exists(HERE / "temp"):
+            os.mkdir(HERE / "temp")
+        self.path_temp = HERE / "temp" / self.pdb_code
 
         if not os.path.exists(self.path_temp):
             os.mkdir(self.path_temp)
 
         if not os.path.exists(HERE / path_results):
             raise OSError(f"Result folder {str(HERE / path_results)} does not exists")
-        
+
         self.path_results = HERE / path_results / self.pdb_code
 
         if not os.path.exists(self.path_results):
             os.mkdir(self.path_results)
         else:
             # clear file, if it already exists
-            with open(self.path_results/ 'results.sdf', 'wt') as file:
+            with open(self.path_results / "results.sdf", "wt") as file:
                 pass
