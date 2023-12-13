@@ -41,7 +41,10 @@ if __name__ == "__main__":
         "-r", "--results", default="results", help="Folder, where results are placed"
     )
     parser.add_argument(
-        "-log", "--loglevel", default="INFO", help="Logging level (error, warning, info, or debug). Example --loglevel debug, default=info"
+        "-log",
+        "--loglevel",
+        default="INFO",
+        help="Logging level (error, warning, info, or debug). Example --loglevel debug, default=info",
     )
 
     args = parser.parse_args()
@@ -54,8 +57,8 @@ if __name__ == "__main__":
     # init logging
     numeric_level = getattr(logging, args.loglevel.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError('Invalid log level: %s' % args.loglevel)
-    
+        raise ValueError("Invalid log level: %s" % args.loglevel)
+
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(message)s",
         level=numeric_level,
