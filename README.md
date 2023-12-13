@@ -1,5 +1,5 @@
 # KinFragLib_PocketEnum
-KinFragLib_PocketEnum
+This pipeline automatically places and expands fragments in a binding pocket of a given kinase structure – based on a user-defined subpocket path – to generate numerous possible kinase inhibitors. The pipeline allows the user to customize this process by e.g. setting the starting subpocket and the subpocket path for fragment growing and defining thresholds
 
 ## Usage
 
@@ -38,11 +38,11 @@ pip install -e KinFragLib
 
 ### Run subpocket based docking programm
 ```bash
-python src/fragment_docking.py -d <JSON_definition_file> -o <JSON_outputfile> -r <path_to_results_folder>
+python3 src/fragment_docking.py -d <JSON_definition_file> -o <JSON_outputfile> -r <path_to_results_folder>
 ```
 for help run:
 ```bash
-python src/fragment_docking.py -h
+python3 src/fragment_docking.py -h
 ```
 
 Note: The process can be tracked on https://wandb.ai/home:
