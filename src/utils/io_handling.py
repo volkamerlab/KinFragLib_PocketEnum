@@ -32,7 +32,9 @@ def write_violations_to_file(violations: list, path_output: Path):
         Path to output file
     """
     with Chem.SDWriter(str(path_output)) as w:
-        for violation in violations:
+        for i, violation in enumerate(violations):
+            violation[0].SetProp("_Name", f"V{i:08}_pre")
+            violation[1].SetProp("_Name", f"V{i:08}_opt")
             w.write(violation[0])
             w.write(violation[1])
 
@@ -65,6 +67,7 @@ def append_ligands_to_file(
                 if not condition(ligand):
                     continue
                 mol = ligand.get_best_pose().ROMol
+                mol.ROMol.SetProp("_Name", ligand.compute_unique_id())
                 if ligand in ligands_filtered:
                     mol.SetProp("filtered", "0")
                 else:
@@ -88,7 +91,10 @@ def write_all_poses_to_file(
     with Chem.SDWriter(str(path_output)) as w:
         ligand: Ligand
         for ligand in molecules:
-            for pose in ligand.poses_pre_filtered if ligand.poses_pre_filtered else ligand.poses:
+            # set name
+            ligand_id = ligand.compute_unique_id()
+            for i, pose in enumerate(ligand.poses_pre_filtered or ligand.poses):
+                pose.ROMol.SetProp("_Name", ligand_id + f"P{i:04d}")
                 if ligand in ligands_filtered:
                     # molecule was chosen
                     if pose in ligand.poses:

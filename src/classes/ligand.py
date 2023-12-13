@@ -9,6 +9,8 @@ from utils.brics_rules import is_brics_bond
 from classes.recombination import Recombination
 from utils._utils import calc_distance_matrix
 
+SUBPOCKETS = ["AP", "FP", "SE", "GA", "B1", "B2"]
+
 
 class Pose:
     def __init__(self, ROMol, docking_score):
@@ -22,7 +24,14 @@ class Pose:
 
 
 class Ligand:
-    def __init__(self, ROMol, fragment_ids, recombination, smiles_dummy, smiles):
+    def __init__(
+        self,
+        ROMol,
+        fragment_ids: dict,
+        recombination: Recombination,
+        smiles_dummy: dict,
+        smiles: dict,
+    ):
         self.ROMol = ROMol
         self.poses = []
         self.fragment_ids = fragment_ids
@@ -69,6 +78,17 @@ class Ligand:
             logging.error("Could not optimize molecule")
             return False
 
+    def compute_unique_id(self) -> str:
+        """
+        Computes a unique id for the ligand
+
+        Returns
+        --------
+        str: a unique id
+        """
+        # scheme: [AP_index][FP_index][SE_index][GA_index][B1_index][B2_index] each 4 digits
+        return "L" + "".join([f"{(self.fragment_ids.get(sp) or 0):04d}" for sp in SUBPOCKETS])
+
     def add_pose(self, pose: Pose):
         """
         Adds a pose to the given ligand.
@@ -105,7 +125,7 @@ class Ligand:
 
     def choose_template_poses(self, num_templates=None):
         """
-        Chooses *num_templates*-best poses according to docking result and diimport loggingversity and removes the non-top-scored or invalid poses
+        Chooses *num_templates*-best poses according to docking result and diversity and removes the non-top-scored or invalid poses
 
         Parameters
         ----------
@@ -119,7 +139,7 @@ class Ligand:
             return
         if not num_templates:
             # default of num_poses = amount of poses
-            num_templates = len(self.poses)
+            return
 
         # always choose the pose with the best docking score
         choosen_poses = [min(self.poses, key=lambda p: p.docking_score)]
@@ -150,7 +170,8 @@ class Ligand:
 
     def choose_template_poses_cluster_based(self, num_templates=None, distance_threshold=1.5):
         """
-        Chooses up to *num_templates*-best poses according to docking result and diversity and removes the non-top-scored or invalid poses.
+        Chooses up to *num_templates*-best poses according to docking result and diversity and
+        removes the non-top-scored or invalid poses.
         Poses are clustered according to RMSD first. Then at most one pose per cluster is choosen.
 
         Parameters
@@ -236,7 +257,11 @@ class Ligand:
         fragment = Chem.RemoveHs(fragment_library[subpocket]["ROMol_original"][fragment_id])
         # dummy atoms of the fragment that should to be recombined
         dummy_atoms = [
-            (f"{subpocket}_{i}", a.GetNeighbors()[0].GetProp("environment"), a.GetProp("subpocket"))
+            (
+                f"{subpocket}_{i}",
+                a.GetNeighbors()[0].GetProp("environment"),
+                a.GetProp("subpocket"),
+            )
             for i, a in enumerate(fragment.GetAtoms())
             if a.GetSymbol() == "*"
         ]
