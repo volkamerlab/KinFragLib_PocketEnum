@@ -40,6 +40,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-r", "--results", default="results", help="Folder, where results are placed"
     )
+    parser.add_argument(
+        "-log", "--loglevel", default="INFO", help="Logging level (error, warning, info, or debug). Example --loglevel debug, default=info"
+    )
 
     args = parser.parse_args()
 
@@ -49,9 +52,13 @@ if __name__ == "__main__":
     config.initialize_folders(args.results)
 
     # init logging
+    numeric_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError('Invalid log level: %s' % args.loglevel)
+    
     logging.basicConfig(
         format="%(asctime)s - %(levelname)s - %(message)s",
-        level=logging.DEBUG,
+        level=numeric_level,
         datefmt="%Y-%m-%d %H:%M:%S",
     )
     wandb.init(
@@ -136,7 +143,8 @@ if __name__ == "__main__":
     # determine size of fragment library and log it
     library_size = {sp: len(fragment_library[sp]) for sp in fragment_library.keys()}
     output_logs["FragmentLibrarySize"] = library_size
-    logging.info("Preprocessing finished\n Size of fragment library" + str(library_size))
+    logging.info("Preprocessing finished")
+    logging.info("Size of fragment library" + str(library_size))
 
     # ===== CORE DOCKING =======
 
@@ -217,6 +225,7 @@ if __name__ == "__main__":
             logging.warning(
                 f"Fragment library contains 0 {subpocket}-fragments, continue with next subpocket"
             )
+            continue
 
         logging.info(
             "Template docking of "
@@ -374,7 +383,9 @@ if __name__ == "__main__":
         )
         output_logs["MeanHydeDisplacementIncludingViolations"][
             "SP" + str(config.subpockets.index(subpocket) + 1)
-        ] = sum(mol.mean_hyde_displacement for mol in docking_results) / (len(docking_results) or 1)
+        ] = sum(mol.mean_hyde_displacement for mol in docking_results) / (
+            len(docking_results) or 1
+        )
         output_logs["NumDisplacementViolations"][
             "SP" + str(config.subpockets.index(subpocket) + 1)
         ] = sum(mol.num_hyde_violations for mol in docking_results)

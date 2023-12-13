@@ -105,10 +105,14 @@ def template_docking_task(
                     conformer_hyde, float(conformer_hyde.GetProp("BIOSOLVEIT.DOCKING_SCORE"))
                 )
                 pose.binding_affinity_upper = float(
-                    conformer_hyde.GetProp("BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]")
+                    conformer_hyde.GetProp(
+                        "BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]"
+                    )
                 )
                 pose.binding_affinity_lower = float(
-                    conformer_hyde.GetProp("BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]")
+                    conformer_hyde.GetProp(
+                        "BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]"
+                    )
                 )
                 rmsd = calc_distance_matrix([conformer_hyde, conformer_docking])[0]
 

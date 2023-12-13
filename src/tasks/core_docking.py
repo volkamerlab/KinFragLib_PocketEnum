@@ -35,7 +35,7 @@ def core_docking_task(config: Config, core_fragment):
         + "-Fragment: "
         + str(core_fragment.fragment_ids[config.core_subpocket])
     )
-    # safe fragment as sdf file
+    # safe fragment in sdf file
     if not core_fragment.to_sdf(
         config.path_temp / ("cand_thread_" + str(thread_id) + "_core_fragment.sdf")
     ):
