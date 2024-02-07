@@ -13,6 +13,7 @@ from classes.config import Config
 from tasks.core_docking import core_docking_task
 from tasks.template_docking import template_docking_task
 from tasks._utils import prepare_core_fragments
+from tasks.compound_filtering import cluster_based_compound_filtering
 
 from utils.io_handling import (
     write_all_poses_to_file,
@@ -248,9 +249,10 @@ if __name__ == "__main__":
         docking_results_pre_filtering = docking_results.copy()
 
         # choose n best fragments
-        docking_results = docking_results[
-            : min(len(docking_results), config.fragments_per_iteration)
-        ]
+        # docking_results = docking_results[
+        #     : min(len(docking_results), config.fragments_per_iteration)
+        # ]
+        docking_results = cluster_based_compound_filtering(docking_results, config.fragments_per_iteration, config, subpocket)
 
         # choose k best conformers (per fragment)
         for ligand in docking_results:
