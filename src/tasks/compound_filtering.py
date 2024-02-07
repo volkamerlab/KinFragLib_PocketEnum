@@ -3,12 +3,12 @@ import math
 import random
 import statistics
 
+import matplotlib.pyplot as plt
 from rdkit import DataStructs
 from rdkit.Chem import Draw, rdFingerprintGenerator
 from rdkit.ML.Cluster import Butina
 
 from classes.config import Config
-from classes.ligand import Ligand
 
 
 def cluster_based_compound_filtering(docking_results: list, num_candidates: int, config: Config, SP: str) -> list:
@@ -32,11 +32,23 @@ def cluster_based_compound_filtering(docking_results: list, num_candidates: int,
 
         
         """
-    # TODO later add
-    # if len(docking_results) <= num_candidates:
-    #   return docking_results
+    
+    if len(docking_results) <= num_candidates:
+       return docking_results
+    
     # cluster compounds 
     clusters = _cluster_compounds(docking_results)
+
+    
+    # sort ligands in clusters (ascending)
+    for cluster in clusters:
+        if config.use_hyde:
+            cluster.sort(key=lambda l: l.min_binding_affinity)
+        else:
+            cluster.sort(key=lambda l: l.min_docking_score)
+
+    # per cluster: calculate score
+    scores = _calc_cluster_scores(clusters, config.use_hyde)
 
     logging.info(f"Created {len(clusters)} clusters")
     logging.info(f"Number of clusters with 1 compound: {sum(len(c) == 1 for c in clusters)}")
@@ -54,8 +66,17 @@ def cluster_based_compound_filtering(docking_results: list, num_candidates: int,
     
     # logging.info(f"Mean standard derivation of ligand scores within clusters")
     #TODO maybe line plot
+
+    plt.plot(list(range(len(scores))), sorted(scores))
+    plt.ylabel("Cluster Score")
+    plt.xlabel("Cluster")
+    plt.savefig(f"cluster_scores_{SP}_pre.png")
+    plt.clf()
     
     for i, cluster in enumerate(clusters):
+        if len(cluster) == 1:
+            continue
+
         img = Draw.MolsToGridImage(
             [ligand.ROMol for ligand in cluster[:10]],
             molsPerRow=5,
@@ -64,26 +85,31 @@ def cluster_based_compound_filtering(docking_results: list, num_candidates: int,
 
         img.save(f"cluster_{i}_{SP}.png")
 
-
-    # sort ligands in clusters (ascending)
-    for cluster in clusters:
-        if config.use_hyde:
-            cluster.sort(key=lambda l: l.min_binding_affinity)
-        else:
-            cluster.sort(key=lambda l: l.min_docking_score)
-
-    # per cluster: calculate score
-    scores = _calc_cluster_scores(clusters, config.use_hyde)
-
-    # select k clusters (?) or all clusters with nm <1000 ?
-    # TODO skip this for now -> can be changed
-
-    # sort compounds per cluster 
+    # Only clusters with nm < 5.000 others are considered as not worth to consider
+    for idx in range(len(cluster)):
+        if scores[idx] >= 5.000:
+            del scores[idx]
+            del clusters[idx]
 
     # softmax
     probabilities = _draw_distribution(scores)
 
+    plt.plot(list(range(len(scores))), sorted(scores))
+    plt.ylabel("Cluster Score")
+    plt.xlabel("Cluster")
+    plt.savefig(f"cluster_scores_{SP}_post.png")
+    plt.clf()
+
+    # sort compounds per cluster 
+
+    plt.plot(list(range(len(probabilities))), sorted(probabilities, reverse=True), )
+    plt.ylabel("Propability")
+    plt.xlabel("Cluster")
+    plt.savefig(f"propability_{SP}.png")
+    plt.clf()
+
     candidates = []
+
     for _ in range(num_candidates):
         # choose cluster
         choosen_cluster_idx = random.choices(range(len(clusters)), probabilities)[0]
@@ -170,10 +196,10 @@ def _tanimoto_distance_matrix(fp_list):
         dissimilarity_matrix.extend([1 - x for x in similarities])
     return dissimilarity_matrix
 
-def _draw_distribution(cluster_scores: list, p: int = 100) -> list:
+def _draw_distribution(cluster_scores: list, p: int = 1) -> list:
     """
-    Draws a probability distribution based on the cluster scores using softmin
-
+    Draws a probability distribution based on the inverse cluster scores using softmax
+    
     Returns
     ----------
     Mapped propabilities for each cluster
@@ -183,8 +209,11 @@ def _draw_distribution(cluster_scores: list, p: int = 100) -> list:
     cluster_scores: list(float)
         Scores of clusters
     """
-    print(cluster_scores)
-    denominator = sum(math.exp(-c/p) for c in cluster_scores)
-    print([math.exp(-c/p)/denominator for c in cluster_scores])
-    return [math.exp(-c/p)/denominator for c in cluster_scores]
+    # min_max_scaling [0,100]
+    x_min = min(cluster_scores)
+    x_max = max(cluster_scores)
+    min_max_scaling = lambda c: ((c - x_min)*100) / (x_max - x_min + 1)
+    denominator = sum(math.exp(- min_max_scaling(c) / p) for c in cluster_scores)
+    # plus one to prevent devision by 0 if e^x is too small to be represenetd
+    return [math.exp(- min_max_scaling(c) / p)/(denominator + 1) for c in cluster_scores]
     
