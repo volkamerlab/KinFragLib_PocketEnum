@@ -45,6 +45,8 @@ class Config:
         Path to folder of temp-files
     path_results: Path
         Path to folder where reults should be placed
+    seed: Int
+        Seed used for random algorithm
     """
 
     def __init__(self) -> None:
@@ -66,6 +68,7 @@ class Config:
         self.path_temp = None
         self.path_results = None
         self._result = None
+        self.seed = None
 
     def parse(self, config_file) -> None:
         """
@@ -100,6 +103,8 @@ class Config:
         self.num_threads = definitions.get("NumberThreads")
 
         self.filters = [Filter(name, values) for name, values in definitions["Filters"].items()]
+
+        self.seed = definitions.get("Seed") or 42
 
         # Paths
         self.path_kinfraglib = Path(definitions["KinFragLib"])

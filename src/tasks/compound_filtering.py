@@ -2,6 +2,7 @@ import logging
 import math
 import random
 import statistics
+from pathlib import Path
 
 import matplotlib.pyplot as plt
 from rdkit import DataStructs
@@ -12,7 +13,6 @@ from classes.config import Config
 
 
 def cluster_based_compound_filtering(docking_results: list, num_candidates: int, config: Config, SP: str) -> list:
-    # TODO set seed
     """
         Chooses *num_candidates* ligands according to docking result and diversity.
         Ligands are clustered according to TODO (Tanimoto similarity?) first and cluster score is calculated 
@@ -50,63 +50,31 @@ def cluster_based_compound_filtering(docking_results: list, num_candidates: int,
     # per cluster: calculate score
     scores = _calc_cluster_scores(clusters, config.use_hyde)
 
+    # sort clusters and scores
+    clusters, scores = _sort_clusters(clusters, scores)
+
     logging.info(f"Created {len(clusters)} clusters")
     logging.info(f"Number of clusters with 1 compound: {sum(len(c) == 1 for c in clusters)}")
     logging.info(f"Avg. cluster size: {statistics.mean(len(c) for c in clusters)}")
     logging.info(f"Max. cluster size: {max(len(c) for c in clusters)}")
 
-    # TODO plot cluster score against avg. 
-    # for evaluation purpose:
-    # std_dev_per_cluster = [statistics.stdev(ligand.min_binding_affinity if config.use_hyde else ligand.min_docking_score for ligand in cluster) 
-    #                       for cluster in clusters]
-    mean_score_per_cluster = [statistics.mean(ligand.min_binding_affinity if config.use_hyde else ligand.min_docking_score for ligand in cluster) 
-                           for cluster in clusters]
-    max_score_per_cluster = [max(ligand.min_binding_affinity if config.use_hyde else ligand.min_docking_score for ligand in cluster) 
-                           for cluster in clusters]
+    stats = {"NumberClustersPre": len(clusters), "SingletonClusters": {sum(len(c) == 1 for c in clusters)}, 
+             "MeanClusterSize": {statistics.mean(len(c) for c in clusters)}, "MaxClusterSize": {max(len(c) for c in clusters)}}
+    stats["ScoresPre"] = scores
     
-    # logging.info(f"Mean standard derivation of ligand scores within clusters")
-    #TODO maybe line plot
+    # consider only best 90% of cluster
+    scores = scores[:math.ceil(len(scores)*0.9)]
+    clusters = clusters[:len(scores)]
 
-    plt.plot(list(range(len(scores))), sorted(scores))
-    plt.ylabel("Cluster Score")
-    plt.xlabel("Cluster")
-    plt.savefig(f"cluster_scores_{SP}_pre.png")
-    plt.clf()
-    
-    for i, cluster in enumerate(clusters):
-        if len(cluster) == 1:
-            continue
+    stats["MolScoresWithinCluster"] = [[ligand.get_min_score() for ligand in cluster] for cluster in clusters]
+    stats["SingletonClusters"] = sum(len(c) == 1 for c in clusters)
+    stats["MeanClusterSize"] = statistics.mean(len(c) for c in clusters)
+    stats["MaxClusterSize"] = max(len(c) for c in clusters)
 
-        img = Draw.MolsToGridImage(
-            [ligand.ROMol for ligand in cluster[:10]],
-            molsPerRow=5,
-            returnPNG=False
-        )
-
-        img.save(f"cluster_{i}_{SP}.png")
-
-    # Only clusters with nm < 5.000 others are considered as not worth to consider
-    for idx in range(len(cluster)):
-        if scores[idx] >= 5.000:
-            del scores[idx]
-            del clusters[idx]
+    _save_clusters_to_image(config.path_results, SP, clusters)
 
     # softmax
     probabilities = _draw_distribution(scores)
-
-    plt.plot(list(range(len(scores))), sorted(scores))
-    plt.ylabel("Cluster Score")
-    plt.xlabel("Cluster")
-    plt.savefig(f"cluster_scores_{SP}_post.png")
-    plt.clf()
-
-    # sort compounds per cluster 
-
-    plt.plot(list(range(len(probabilities))), sorted(probabilities, reverse=True), )
-    plt.ylabel("Propability")
-    plt.xlabel("Cluster")
-    plt.savefig(f"propability_{SP}.png")
-    plt.clf()
 
     candidates = []
 
@@ -173,11 +141,14 @@ def _calc_cluster_scores(clusters: list, use_hyde_score: bool) -> list:
     scores = []
     for cluster in clusters:
         # assuming that ligands clusters are sorted
-        first_quratile_idx = len(cluster)//4 
-        # do not consider first and last 25% (according to ligand score)
-        # to somehow ignore outliers
+        second_quratile_idx = len(cluster) - len(cluster)//4 
+        # do not consider the last 25% (according to ligand score)
+        # to somehow ignore negative outliers
+        # do not ignore positvie outliers since they will be selected first => hence they should have a rather big influence 
+        # on the overall score
+         
         scores_within_iqr = (ligand.min_binding_affinity if use_hyde_score else ligand.min_docking_score 
-                             for ligand in cluster[first_quratile_idx:len(cluster)-first_quratile_idx])
+                             for ligand in cluster[:len(cluster)-second_quratile_idx])
         scores.append(statistics.mean(scores_within_iqr))
 
     return scores
@@ -212,8 +183,64 @@ def _draw_distribution(cluster_scores: list, p: int = 1) -> list:
     # min_max_scaling [0,100]
     x_min = min(cluster_scores)
     x_max = max(cluster_scores)
-    min_max_scaling = lambda c: ((c - x_min)*100) / (x_max - x_min + 1)
-    denominator = sum(math.exp(- min_max_scaling(c) / p) for c in cluster_scores)
-    # plus one to prevent devision by 0 if e^x is too small to be represenetd
-    return [math.exp(- min_max_scaling(c) / p)/(denominator + 1) for c in cluster_scores]
+
+    if x_max == x_min:
+        # all scores are equal or only one cluster exits
+        # -> uniform distribution
+        return [1/len(cluster_scores) for _ in cluster_scores]
     
+    min_max_scaling = lambda c: ((c - x_min)*100) / (x_max - x_min)
+
+    denominator = sum(math.exp(- min_max_scaling(c) / p) for c in cluster_scores)
+
+    return [math.exp(- min_max_scaling(c) / p)/(denominator) for c in cluster_scores]
+    
+def _save_clusters_to_image(folder: Path, subpocket: str, clusters: list):
+    """ 
+    Saves mols of clusters with >= 2 molecules as image
+
+    Parameters
+    ----------
+    folder: Path
+        Path to folder, where images should be places
+    subpocket: str
+        Current subpocket
+    Clusters: list()
+        Clusters
+    """
+    for i, cluster in enumerate(clusters):
+        if len(cluster) == 1:
+            continue
+
+        img = Draw.MolsToGridImage(
+            [ligand.ROMol for ligand in cluster[:10]],
+            molsPerRow=5,
+            returnPNG=False
+        )
+
+        img.save(f"{folder}/cluster_{i}_{subpocket}.png")
+
+def _sort_clusters(clusters: list, scores: list) -> (list, list):  
+    """
+    Sorts clusters and scores synchronous based on scores, such that they still correspont to each other
+
+    Returns
+    --------
+    (list, list)
+        Pair of sorted (clusters, scores)
+
+    Parameters
+    ----------
+    clusters: list(list(Ligand))
+        Clusters
+    scores: list(float)
+        Scores of clusters
+
+    """
+    # indexes that correspond to sorted clusters/scores
+    sorted_indexes = sorted(range(len(scores)), key= lambda i: scores[i])
+
+    sorted_clusters = [clusters[idx] for idx in sorted_indexes]
+    sorted_scores = [scores[idx] for idx in sorted_indexes]
+
+    return sorted_clusters, sorted_scores

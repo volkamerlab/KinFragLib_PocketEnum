@@ -14,6 +14,7 @@ from tasks.core_docking import core_docking_task
 from tasks.template_docking import template_docking_task
 from tasks._utils import prepare_core_fragments
 from tasks.compound_filtering import cluster_based_compound_filtering
+from utils._utils import seed_everything
 
 from utils.io_handling import (
     write_all_poses_to_file,
@@ -102,6 +103,9 @@ if __name__ == "__main__":
         "NumMultipleBondsBetweenFragmentAndLigand": {},
         "NumMultipleBondsBetweenTwoFragments": {},
     }
+
+    # set seeds
+    seed_everything(config.seed)
 
     # ==== PREPROCESSING =======
 
