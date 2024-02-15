@@ -148,7 +148,7 @@ def _calc_cluster_scores(clusters: list, use_hyde_score: bool) -> list:
         # on the overall score
          
         scores_within_iqr = (ligand.min_binding_affinity if use_hyde_score else ligand.min_docking_score 
-                             for ligand in cluster[:len(cluster)-second_quratile_idx])
+                             for ligand in cluster[:second_quratile_idx])
         scores.append(statistics.mean(scores_within_iqr))
 
     return scores
