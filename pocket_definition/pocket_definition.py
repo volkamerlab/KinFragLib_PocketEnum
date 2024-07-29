@@ -104,9 +104,14 @@ if __name__ == "__main__":
     os.remove("pocket_sequences.fasta")
 
     # calc simple consensus sequence with cons EMBOSS
-    output_text = subprocess.run(
-        ["cons", "-sequence", "alignment.clustal", "-outseq", "consensus.cons"], capture_output=True
-    )
+    try:
+        output_text = subprocess.run(
+            ["cons", "-sequence", "alignment.clustal", "-outseq", "consensus.cons"], capture_output=True
+        )
+    except FileNotFoundError:
+        output_text = subprocess.run(
+            ["em_cons", "-sequence", "alignment.clustal", "-outseq", "consensus.cons"], capture_output=True
+        )
     os.remove("alignment.clustal")
 
     # parse sequence
@@ -164,3 +169,4 @@ if __name__ == "__main__":
     print("FP: ", [mapping[10], mapping[51], mapping[72], mapping[81]])
     print("GA: ", [mapping[17], mapping[45], mapping[81]])
     print("SE: ", [mapping[51]])
+    print("B2", [mapping[18], mapping[24], mapping[70], mapping[83]])

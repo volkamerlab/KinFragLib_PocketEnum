@@ -33,4 +33,4 @@
 
 # Usage
 ```bash
-./pocket_definition.py [-h] -f FAMILY -n NAME -p PDB_STRUCTURE```
+python3 pocket_definition.py [-h] -f FAMILY -n NAME -p PDB_STRUCTURE```
