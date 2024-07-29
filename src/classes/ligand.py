@@ -122,6 +122,17 @@ class Ligand:
             if self.min_binding_affinity
             else min(self.poses, key=lambda p: p.docking_score)
         )
+    
+    def get_min_score(self) -> float:
+        """
+        Get the minimum score (docking or hyde score)
+
+        Resturns
+        --------
+        float
+            minimum score
+        """
+        return self.min_binding_affinity or self.min_docking_score
 
     def choose_template_poses(self, num_templates=None):
         """

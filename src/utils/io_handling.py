@@ -67,7 +67,7 @@ def append_ligands_to_file(
                 if not condition(ligand):
                     continue
                 mol = ligand.get_best_pose().ROMol
-                mol.ROMol.SetProp("_Name", ligand.compute_unique_id())
+                mol.SetProp("_Name", ligand.compute_unique_id())
                 if ligand in ligands_filtered:
                     mol.SetProp("filtered", "0")
                 else:
