@@ -4,6 +4,7 @@ import math
 import random
 import statistics
 from pathlib import Path
+from typing import Tuple
 
 from rdkit import DataStructs
 from rdkit.Chem import Draw, rdFingerprintGenerator
@@ -83,7 +84,7 @@ def cluster_based_compound_filtering(
     _save_clusters_to_image(config.path_results, SP, clusters)
 
     # softmax
-    probabilities = _draw_distribution(scores)
+    probabilities = _draw_distribution(scores, config.P)
 
     stats["Distribution"] = probabilities
 
@@ -119,7 +120,7 @@ def cluster_based_compound_filtering(
 
 def _cluster_compounds(docking_results: list, cutoff: float = 0.2) -> list:
     """
-    clusters compounds using Tanimoto similarity and Butina cluster
+    Clusters compounds using Tanimoto similarity and Butina cluster
 
     Returns
     ----------
@@ -247,7 +248,7 @@ def _save_clusters_to_image(folder: Path, subpocket: str, clusters: list):
         img.save(f"{folder}/cluster_{i}_{subpocket}.png")
 
 
-def _sort_clusters(clusters: list, scores: list) -> [list, list]:
+def _sort_clusters(clusters: list, scores: list) -> Tuple[list, list]:
     """
     Sorts clusters and scores synchronous based on scores, such that they still correspont to each other
 
