@@ -281,7 +281,7 @@ if __name__ == "__main__":
                 docking_results, config.fragments_per_iteration, config, subpocket
             )
         else:
-            # choose n best fragments
+            # choose n best fragments (greedy ligand selection)
             docking_results = docking_results[
                 : min(len(docking_results), config.fragments_per_iteration)
             ]
