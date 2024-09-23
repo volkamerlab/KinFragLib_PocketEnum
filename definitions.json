@@ -19,5 +19,8 @@
     "NumberThreads": 256,
     "UseHyde": true,
     "Hyde": "hydescorer-2.0.0-Linux-x64/hydescorer",
-    "HydeDisplacementCutoff": 2.5
+    "HydeDisplacementCutoff": 2.5,
+    "Seed": 42,
+    "UseClusterBasedFragmentFiltering": true,
+    "PSoftMin": 1
 }
