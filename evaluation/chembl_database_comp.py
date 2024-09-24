@@ -1,7 +1,14 @@
 import pandas as pd
-from rdkit import (Chem, DataStructs, Geometry)
-from rdkit.Chem import (Descriptors,
-    Lipinski, QED, Draw, AllChem, PandasTools, rdFingerprintGenerator)
+from rdkit import Chem, DataStructs, Geometry
+from rdkit.Chem import (
+    Descriptors,
+    Lipinski,
+    QED,
+    Draw,
+    AllChem,
+    PandasTools,
+    rdFingerprintGenerator,
+)
 import json
 from kinfraglib import utils
 import matplotlib.pyplot as plt
@@ -12,6 +19,7 @@ from copy import deepcopy
 from rdkit.ML.Cluster import Butina
 import numpy as np
 from chembl_webresource_client.new_client import new_client
+
 
 def most_similar_chembl_ligand(ligand_inchi, chembl):
     """
@@ -42,58 +50,80 @@ def most_similar_chembl_ligand(ligand_inchi, chembl):
         chembl_fingerprints = chembl.fingerprint.to_list()
 
         # get pairwise similarities
-        chembl['similarity'] = DataStructs.BulkTanimotoSimilarity(query_fingerprint, chembl_fingerprints)
+        chembl["similarity"] = DataStructs.BulkTanimotoSimilarity(
+            query_fingerprint, chembl_fingerprints
+        )
 
         # get ligand with maximal similarity
         chembl_most_similar_ix = chembl.similarity.idxmax()
 
         return [
             chembl.loc[chembl_most_similar_ix].chembl_id,
-            round(chembl.loc[chembl_most_similar_ix].similarity, 2)
+            round(chembl.loc[chembl_most_similar_ix].similarity, 2),
         ]
 
     except Exception as e:
-        
-        print(f'Most similar ChEMBL ligand search problem for {ligand_inchi}: {e}')
+
+        print(f"Most similar ChEMBL ligand search problem for {ligand_inchi}: {e}")
         return [None, None]
 
+
 USE_MORGAN = False
-CHEMBL_PATH = 'evaluation/chembl_33.sdf'
-COMPOUNDS_PATH = 'results_thesis/3amb/results.sdf'
-OUTPATH = 'evaluation/chembl_most_similar_rdkit.csv'
+CHEMBL_PATH = "evaluation/chembl_33.sdf"
+COMPOUNDS_PATH = "../results_5n1f_25_02/5n1f/results.sdf"
+OUTPATH = "evaluation/chembl_most_similar_rdkit.csv"
 
 # read chembl data
-chembl_data = PandasTools.LoadSDF(
-   CHEMBL_PATH,
-   embedProps=True
-)
+chembl_data = PandasTools.LoadSDF(CHEMBL_PATH, embedProps=True)
 
 print(chembl_data.shape)
 
-print('added inchi')
+print("added inchi")
 
 # generate
 if USE_MORGAN:
     morgan_gen = rdFingerprintGenerator.GetMorganGenerator(radius=2)
-    chembl_data['fingerprint'] = chembl_data['ROMol'].map(lambda x: morgan_gen.GetFingerprint(x))
+    chembl_data["fingerprint"] = chembl_data["ROMol"].map(
+        lambda x: morgan_gen.GetFingerprint(x)
+    )
 else:
     rdkit_gen = rdFingerprintGenerator.GetRDKitFPGenerator(maxPath=5)
-    chembl_data['fingerprint'] = chembl_data['ROMol'].map(lambda x: rdkit_gen.GetFingerprint(x))
+    chembl_data["fingerprint"] = chembl_data["ROMol"].map(
+        lambda x: rdkit_gen.GetFingerprint(x)
+    )
 
-print('calculated fingerprints')
+print("calculated fingerprints")
 
 # read results data
 data = utils_eval.read_mols(COMPOUNDS_PATH)
-data['binding_affinity'] = data.apply(lambda x: (x['BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]'] + x['BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]'])/2, axis=1)
+data["binding_affinity"] = data.apply(
+    lambda x: (
+        x["BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_UPPER_BOUNDARY [nM]"]
+        + x["BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]"]
+    )
+    / 2,
+    axis=1,
+)
 # post filtering
-data_post_filtered = data[data['binding_affinity'] <= 1000].copy().reset_index(drop=True) 
+data_post_filtered = (
+    data[data["binding_affinity"] <= 1000].copy().reset_index(drop=True)
+)
 
-data_post_filtered['inchi'] = data_post_filtered.apply(lambda x: Chem.MolToInchi(utils.standardize_mol(x.ROMol)), axis=1)
+data_post_filtered["inchi"] = data_post_filtered.apply(
+    lambda x: Chem.MolToInchi(utils.standardize_mol(x.ROMol)), axis=1
+)
 
 # calculated most similar kinodata ligand
-most_similar_chembl_ligands = [most_similar_chembl_ligand(ligand_inchi, chembl_data) for ligand_inchi in data_post_filtered.inchi]
-data_post_filtered['most_similar_chembl_ligand.compound_id'] = [res[0] for res in most_similar_chembl_ligands]
-data_post_filtered['most_similar_chembl_ligand.similarity'] = [res[1] for res in most_similar_chembl_ligands]
+most_similar_chembl_ligands = [
+    most_similar_chembl_ligand(ligand_inchi, chembl_data)
+    for ligand_inchi in data_post_filtered.inchi
+]
+data_post_filtered["most_similar_chembl_ligand.compound_id"] = [
+    res[0] for res in most_similar_chembl_ligands
+]
+data_post_filtered["most_similar_chembl_ligand.similarity"] = [
+    res[1] for res in most_similar_chembl_ligands
+]
 
 # save to csv
 data_post_filtered.to_csv(OUTPATH)
