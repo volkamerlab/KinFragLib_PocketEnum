@@ -34,12 +34,6 @@ if __name__ == "__main__":
         help="JSON file with program configuration",
     )
     parser.add_argument(
-        "-o",
-        "--output",
-        default="output.json",
-        help="Name of output JSON file with program statistics",
-    )
-    parser.add_argument(
         "-r", "--results", default="results", help="Folder, where results are placed"
     )
     parser.add_argument(
@@ -468,7 +462,7 @@ if __name__ == "__main__":
     # ===== EVALUATION ======
 
     # write logs to json output file
-    with open(args.output, "w") as json_file:
+    with open(config.path_results / "program_statistics.json", "w") as json_file:
         json.dump(output_logs, json_file, indent=4)
 
     if len(docking_results):
