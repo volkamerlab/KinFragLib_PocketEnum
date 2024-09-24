@@ -13,6 +13,8 @@ The SeeSAR command-line tools should be be preferable placed within the root dir
 Create a conda environment containing all required packages:
 ```bash
 conda env create -f environment.yml
+```
+```bash
 # When using a MacBook with an M1 chip you may need:
 CONDA_SUBDIR=osx-64 conda env create -f environment.yml
 ```
