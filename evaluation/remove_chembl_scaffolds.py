@@ -8,18 +8,6 @@ PATH_COMPOUNDS = "results_5n1f_25_02/5n1f/results_post_filtered.sdf"
 PATH_CHEMBL = "evaluation/chembl_33.sdf"
 PATH_OUTPUT = "results_5n1f_25_02/5n1f/results_chembl.sdf"
 
-# USE_MORGAN = False
-# CHEMBL_PATH = "evaluation/chembl_33.sdf"
-# COMPOUNDS_PATH = "../results_5n1f_25_02/5n1f/results.sdf"
-# OUTPATH = "evaluation/chembl_most_similar_rdkit.csv"
-
-# # read chembl data
-# chembl_data = PandasTools.LoadSDF(CHEMBL_PATH, embedProps=True)
-
-# print(chembl_data.shape)
-
-# print("added inchi")
-
 if __name__ == "__main__":
 
     # load compounds to dataframe
