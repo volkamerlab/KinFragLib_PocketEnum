@@ -33,14 +33,14 @@ pip install -e KinFragLib
 ```
 
 ### Input
-* `.flexx` and `.hydescorer` files need to be prepared and dowloaded for evey subpocket using the [SeeSAR GUI](https://www.biosolveit.de/SeeSAR). All these files need to be placed in one directoy that is named **only** by the pdb ID  of the structure (e.g., `5l4q`) and should be named according to the following scheme: `<subpocket>.flexx` (`<subpocket>.hydescorer`), `<subpocket>` needs to be replaced with the subpocket of this file. E.g. the FlexX file for the AP subpocket needs to be stored as `AP.flexx`. By default, the program will search for this directory within the `config` directory, however, this can be changed wihtin the `settings.json` file. For an example see the [`config/5l4q`](config/5l4q) directory.
-* Create a JSON configuration file, such that the structure pdb id, the core subpocket, path of subpockets for fragment growing, the path to the fragment library, the path to the FlexX and HYDE executeable, and the path to the folder conatining folder (named with the PDB ID) with the `.flexx` and `.hydescorer` files is defined. A template file is given in [`config/TEMPLATES/settings.json`](config/Templates/settings.json) containing all **required** arguments. [`config/5n1f/settings.json`](config/5n1f/settings.json) provides an example configuration file with all *optional* settings.
+* `.flexx` and `.hydescorer` files need to be prepared and dowloaded for evey subpocket using the [SeeSAR GUI](https://www.biosolveit.de/SeeSAR). All these files need to be placed in one directoy that is named **only** by the pdb ID  of the structure (e.g., `5n1f`) and should be named according to the following scheme: `<subpocket>.flexx` (`<subpocket>.hydescorer`), `<subpocket>` needs to be replaced with the subpocket of this file. E.g. the FlexX file for the AP subpocket needs to be stored as `AP.flexx`. By default, the program will search for this directory within the `config` directory, however, this can be changed wihtin the `settings.json` file. For an example see the [`config/5n1f`](config/5n1f) directory.
+* Create a JSON configuration file, such that the structure pdb id, the core subpocket, path of subpockets for fragment growing, the path to the fragment library, the path to the FlexX and HYDE executeable, and the path to the folder conatining folder (named with the PDB ID) with the `.flexx` and `.hydescorer` files is defined. A template file is given in [`config/templates/settings.json`](config/templates/settings.json) containing all **required** arguments. [`config/5n1f/settings.json`](config/5n1f/settings.json) provides an example configuration file with all *optional* settings.
 
 ### Run subpocket based docking programm
 ```bash
 python3 src/fragment_docking.py -s <JSON_settings_file> -r <path_to_results_folder> 
 ```, 
-where `<JSON_settings_file>` should be replaced by the path to the JSON configuration file (e.g., `conf/5l4q/settings.json`), and `<path_to_results_folder>` by a path to a result folder, by default this will be set to `results`.
+where `<JSON_settings_file>` should be replaced by the path to the JSON configuration file (e.g., `conf/5n1f/settings.json`), and `<path_to_results_folder>` by a path to a result folder, by default this will be set to `results`.
 
 For help run:
 ```bash
