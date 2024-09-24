@@ -1,4 +1,4 @@
-name: kin_frag_lib_pocket_enum
+name: kinfraglib_pocket_enum
 channels:
   - conda-forge
 dependencies:
