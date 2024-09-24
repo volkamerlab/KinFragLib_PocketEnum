@@ -276,9 +276,6 @@ if __name__ == "__main__":
         docking_results_pre_filtering = docking_results.copy()
 
         # choose n best fragments
-        # docking_results = docking_results[
-        #     : min(len(docking_results), config.fragments_per_iteration)
-        # ]
         docking_results = cluster_based_compound_filtering(
             docking_results, config.fragments_per_iteration, config, subpocket
         )
