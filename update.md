@@ -10,3 +10,4 @@ Collect the conifgurations from the config file to reduce this overload of argum
 ## Class structure 
 Divide classes in different folders
 
+
