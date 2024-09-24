@@ -38,7 +38,7 @@ pip install -e KinFragLib
 
 ### Run subpocket based docking programm
 ```bash
-python3 src/fragment_docking.py -d <JSON_definition_file> -o <JSON_outputfile> -r <path_to_results_folder>
+python3 src/fragment_docking.py -s <JSON_settings_file> -o <JSON_output_file> -r <path_to_results_folder>
 ```
 for help run:
 ```bash
