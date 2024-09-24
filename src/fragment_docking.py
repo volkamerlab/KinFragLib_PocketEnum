@@ -2,6 +2,7 @@ from kinfraglib import utils, filters
 from rdkit import Chem
 import logging
 import time
+from datetime import datetime
 import sys
 import wandb
 import argparse
@@ -76,6 +77,7 @@ if __name__ == "__main__":
 
     # prepare directory storing all inforamtion for output json log file
     output_logs = {
+        "StartingTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "pdbCode": config.pdb_code,
         "CoreSubpocket": config.core_subpocket,
         "Subpockets": config.subpockets,
@@ -132,7 +134,7 @@ if __name__ == "__main__":
 
     logging.debug("Start prefiltering")
     # removing fragments in pool X
-    # removing duplicates  # TODO according to smiles with dummy
+    # removing duplicates
     # removing fragments without dummy atoms (unfragmented ligands)
     # removing fragments only connecting to pool X
     fragment_library = filters.prefilters.pre_filters(fragment_library_original)
@@ -470,12 +472,16 @@ if __name__ == "__main__":
     output_logs["RunTimeTotal"] = time.strftime(
         "%H:%M:%S", time.gmtime(round(time.time() - start_time_all, 2))
     )
+
     logging.info("Runtime: %s" % (time.time() - start_time_all))
+
+    # log current time/date
+    output_logs["FinishTime"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # ===== EVALUATION ======
 
     # write logs to json output file
-    with open(args.output, "w") as json_file:
+    with open(config.path_results / args.output, "w") as json_file:
         json.dump(output_logs, json_file, indent=4)
 
     if len(docking_results):

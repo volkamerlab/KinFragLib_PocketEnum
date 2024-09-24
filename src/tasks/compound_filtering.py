@@ -18,7 +18,7 @@ def cluster_based_compound_filtering(
 ) -> list:
     """
     Chooses *num_candidates* ligands according to docking result and diversity.
-    Ligands are clustered according to TODO (Tanimoto similarity?) first and cluster score is calculated
+    Ligands are clustered according to Tanimoto similarity first and a cluster score is calculated
     based on the mean of the second quartile of the ligand docking scores.
     Iterativly the best scored ligands are choosen from randomly drawn clusters based on a cluster-score based distribution.
 
@@ -81,15 +81,13 @@ def cluster_based_compound_filtering(
     stats["MeanClusterSize"] = statistics.mean(len(c) for c in clusters)
     stats["MaxClusterSize"] = max(len(c) for c in clusters)
 
-    _save_clusters_to_image(config.path_results, SP, clusters)
-
     # softmax
     probabilities = _draw_distribution(scores, config.P)
 
     stats["Distribution"] = probabilities
 
     # store stats to file
-    with open(f"{SP}_filtering_stats.json", "w") as json_file:
+    with open(config.path_results / f"{SP}_filtering_stats.json", "w") as json_file:
         json.dump(stats, json_file, indent=4)
 
     candidates = []
