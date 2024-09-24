@@ -39,8 +39,8 @@ pip install -e KinFragLib
 ### Run subpocket based docking programm
 ```bash
 python3 src/fragment_docking.py -s <JSON_settings_file> -r <path_to_results_folder> 
-```, 
-where `<JSON_settings_file>` should be replaced by the path to the JSON configuration file (e.g., `conf/5n1f/settings.json`), and `<path_to_results_folder>` by a path to a result folder, by default this will be set to `results`.
+```
+Here, `<JSON_settings_file>` should be replaced by the path to the JSON configuration file (e.g., `conf/5n1f/settings.json`), and `<path_to_results_folder>` by a path to a result folder, by default this will be set to `results`.
 
 For help run:
 ```bash
