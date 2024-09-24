@@ -52,5 +52,5 @@ python3 src/fragment_docking.py -h
 If this is not wanted choose the option (3)
 
 ### Output
-TODO
+All output files are located in a folder named with the PDB ID within the specified result directory (`<path_to_results_folder> / <PDB ID>`, e.g. `results/5n1f`). 
 
