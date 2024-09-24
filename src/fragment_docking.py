@@ -29,9 +29,8 @@ if __name__ == "__main__":
         prog=sys.argv[0], description="Generates compounds for a given kinase"
     )
     parser.add_argument(
-        "-d",
-        "--definitions",
-        default="definitions.json",
+        "-s",
+        "--settings",
         help="JSON file with program configuration",
     )
     parser.add_argument(
