@@ -5,7 +5,7 @@ This pipeline automatically places and expands fragments in a binding pocket of 
 
 ### Requirements
 The following SeeSAR command-line tools need to be installed and attached with a valid license:
-* [https://www.biosolveit.de/download/](FlexX) for docking
+* [FlexX](https://www.biosolveit.de/download/) FlexX for docking
 * HYDE for scoring and optimization 
 Preferable they should be placed within the root directory of the project.
 
