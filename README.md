@@ -4,7 +4,7 @@ This pipeline automatically places and expands fragments in a binding pocket of 
 ## Usage
 
 ### Requirements
-BioSolveIT's [SeeSAR](https://www.biosolveit.de/download/) (3D desktop modeling platform to prepare the protein input files) and the following [SeeSAR command-line tools](https://www.biosolveit.de/download/) need to be installed and attached with a valid license:
+BioSolveIT's [SeeSAR](https://www.biosolveit.de/SeeSAR) (3D desktop modeling platform to prepare the protein input files) and the following [SeeSAR command-line tools](https://www.biosolveit.de/download/) need to be installed and attached with a valid license:
 * **FlexX** - for docking
 * **HYDE** - for scoring and optimization 
 The SeeSAR command-line tools should be be preferable placed within the root directory of the project.
