@@ -13,6 +13,8 @@ The SeeSAR command-line tools should be be preferable placed within the root dir
 Create a conda environment containing all required packages:
 ```bash
 conda env create -f environment.yml
+```
+```bash
 # When using a MacBook with an M1 chip you may need:
 CONDA_SUBDIR=osx-64 conda env create -f environment.yml
 ```
@@ -39,8 +41,8 @@ pip install -e KinFragLib
 ### Run subpocket based docking programm
 ```bash
 python3 src/fragment_docking.py -s <JSON_settings_file> -r <path_to_results_folder> 
-```, 
-where `<JSON_settings_file>` should be replaced by the path to the JSON configuration file (e.g., `conf/5n1f/settings.json`), and `<path_to_results_folder>` by a path to a result folder, by default this will be set to `results`.
+```
+Here, `<JSON_settings_file>` should be replaced by the path to the JSON configuration file (e.g., `conf/5n1f/settings.json`), and `<path_to_results_folder>` by a path to a result folder, by default this will be set to `results`.
 
 For help run:
 ```bash
@@ -52,5 +54,7 @@ python3 src/fragment_docking.py -h
 If this is not wanted choose the option (3)
 
 ### Output
-TODO
-
+All output files are located in a folder named with the PDB ID within the specified result directory (`<path_to_results_folder> / <PDB ID>`, e.g. `results/5n1f`):
+* `program_statistics.json`: contains program statistics, such as the runtime, or quantities of the ligand generation process
+* `results.sdf`: comprising the generated ligands (for each ligand only the docking conformation of the highest scoring pose is given)
+* `SPx.sdf`: comprising *all* docking conformations of the ligands that have been docking in the `x`-th iteration
