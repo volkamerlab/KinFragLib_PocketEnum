@@ -15,7 +15,7 @@ brew install argtable
 ```
   - download clustal omega source code and unpack it:
   ```bash
-wget -qO- http://www.clustal.org/omega/clustal-omega-1.2.1.tar.gz > clustal-omega-1.2.1.tar.gz
+      wget -qO- http://www.clustal.org/omega/clustal-omega-1.2.1.tar.gz > clustal-omega-1.2.1.tar.gz
       tar zxvf clustal-omega-1.2.1.tar.gz
 ```
   - installation
