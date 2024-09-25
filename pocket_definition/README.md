@@ -1,4 +1,4 @@
-# Required Software:
+## Required Software:
  - Clustal Omega
  - EMBOSS
  - BLAST+
@@ -8,12 +8,12 @@
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
  
- ## Clustal Omega installation:
- ### Linux
+ ### Clustal Omega installation:
+ #### Linux
  ```bash
  sudo apt install clustalo
 ```
- ### Mac
+ #### Mac
   ```bash
 # install argtable first
 brew install argtable
@@ -29,27 +29,27 @@ make
 make install
 ```
 
-## EMBOSS
-### Linux
+### EMBOSS
+#### Linux
 ```bash
 sudo apt-get install emboss
 ```
-### Mac 
+#### Mac 
   ```bash
 brew install brewsci/bio/emboss
 ```
 
-## Blast+
-### Linux
+### Blast+
+#### Linux
 ```bash
 sudo apt-get install ncbi-blast+
 ```
-### Mac
+#### Mac
   ```bash
 brew install blast
 ```
 
-# Usage
+## Usage
 ```bash
 python3 pocket_definition.py [-h] -f FAMILY -n NAME -p PDB_STRUCTURE
 ```
