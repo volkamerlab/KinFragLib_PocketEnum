@@ -15,8 +15,8 @@ brew install argtable
 ```
   - download clustal omega source code and unpack it:
   ```bash
-      wget -qO- http://www.clustal.org/omega/clustal-omega-1.2.1.tar.gz > clustal-omega-1.2.1.tar.gz
-      tar zxvf clustal-omega-1.2.1.tar.gz
+wget -qO- http://www.clustal.org/omega/clustal-omega-1.2.1.tar.gz > clustal-omega-1.2.1.tar.gz
+tar zxvf clustal-omega-1.2.1.tar.gz
 ```
   - installation
   ```bash
@@ -33,7 +33,7 @@ sudo apt-get install emboss
 ```
 ### Mac 
   ```bash
-  brew install brewsci/bio/emboss
+brew install brewsci/bio/emboss
 ```
 
 ## Blast+
@@ -43,7 +43,7 @@ sudo apt-get install ncbi-blast+
 ```
 ### Mac
   ```bash
-  brew install blast
+brew install blast
 ```
 
 # Usage
