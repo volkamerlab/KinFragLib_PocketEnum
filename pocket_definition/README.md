@@ -3,7 +3,7 @@
  - EMBOSS
  - BLAST+
 
- **Note:** The provided installation guide for *Mac* requires the package manager [Homebrew](https://brew.sh/). You can install [Homebrew](https://brew.sh/) using:
+ **Note:** The following installation guide for *Mac* requires the package manager [Homebrew](https://brew.sh/). You can install [Homebrew](https://brew.sh/) using:
  ```bash
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 ```
