@@ -27,10 +27,6 @@ conda activate kinfraglib_pocket_enum
 Download and install `KinFragLib` package:
 ```bash
 git clone https://github.com/volkamerlab/KinFragLib.git
-# we need to change the branch since Custom-KinFragLib is not on the main branch yet:
-cd KinFragLib
-git checkout custom-kinfraglib
-cd ..
 # now we can continue installing the package
 pip install -e KinFragLib
 ```
