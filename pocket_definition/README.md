@@ -51,5 +51,5 @@ brew install blast
 
 ## Usage
 ```bash
-python3 pocket_definition.py [-h] -f FAMILY -n NAME -p PDB_STRUCTURE
+python3 pocket_definition.py [-h] -f FAMILY -n NAME -p PATH_TO_PDB_FILE
 ```

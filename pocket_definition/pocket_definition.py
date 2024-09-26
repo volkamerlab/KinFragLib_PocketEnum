@@ -161,7 +161,7 @@ if __name__ == "__main__":
     for chain in structure.get_chains():
         # get protein residues (disregarding waters, ...)
         residues = list(filter(lambda res: res.id[0] == " ", chain.get_residues()))
-        sequence = [AMINO_ACIDS[res.get_resname()] for res in residues]
+        sequence = "".join([AMINO_ACIDS[res.get_resname()] for res in residues])
 
         logging.info(f"Proceed chain {chain.get_id()}")
         # skip sequences if  seq_length < number of binding pocket residues
@@ -173,7 +173,7 @@ if __name__ == "__main__":
 
         # create two sequence files
         seq1 = SeqRecord(Seq(consensus_sequence), id="seq1")
-        seq2 = SeqRecord(Seq("".join(sequence)), id="seq2")
+        seq2 = SeqRecord(Seq(sequence), id="seq2")
         SeqIO.write(seq1, "seq1.fasta", "fasta")
         SeqIO.write(seq2, "seq2.fasta", "fasta")
 
@@ -192,7 +192,6 @@ if __name__ == "__main__":
                 hsp
                 for aligment in blast_result_record.alignments
                 for hsp in aligment.hsps
-                # ensure that query (pocket consensus sequence) is fully covered
             ),
             None,
         )
