@@ -1,7 +1,5 @@
 import logging
 
-logging.getLogger("numexpr").setLevel(logging.ERROR)
-
 from bravado.client import SwaggerClient
 from Bio.Blast.Applications import NcbiblastpCommandline
 from opencadd.structure.core import Structure
@@ -10,6 +8,7 @@ from Bio.Blast import NCBIXML
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio import SeqIO
+from Bio.PDB import PDBParser
 import subprocess
 import argparse
 import os, sys
@@ -42,6 +41,7 @@ if __name__ == "__main__":
         "MET": "M",
         "SEP": "?",
         "TPO": "?",
+        "HOH": "W",
     }
 
     # parse command line arguments
@@ -57,16 +57,33 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "-p",
-        "--pdb_structure",
-        help="PDB ID of the structure of interest e.g. 3AMB",
+        "--pdb",
+        help="Path to PDB structure of interest",
         required=True,
+    )
+    parser.add_argument(
+        "-log",
+        "--loglevel",
+        default="INFO",
+        help="Logging level (error, warning, info, or debug). Example --loglevel debug, default=info",
     )
 
     args = parser.parse_args()
 
+    # init logging
+    numeric_level = getattr(logging, args.loglevel.upper(), None)
+    if not isinstance(numeric_level, int):
+        raise ValueError("Invalid log level: %s" % args.loglevel)
+
+    logging.basicConfig(
+        format="%(asctime)s - %(levelname)s - %(message)s",
+        level=numeric_level,
+        datefmt="%Y-%m-%d %H:%M:%S",
+    )
+
     kinase_family = args.family
     kinase_name = args.name
-    pdb_code = args.pdb_structure
+    path_pdb = args.pdb
 
     # get all KLIFS entries for the kinase of interest
 
@@ -139,46 +156,19 @@ if __name__ == "__main__":
     os.remove("consensus.cons")
 
     # prepare structure of interest
+    pdb_parser = PDBParser()
+    structure = pdb_parser.get_structure(kinase_name, path_pdb)
 
-    # read pdbx from RCSB
-    bcr = BinaryCifReader(storeStringsAsBytes=False)
-    bcr_results = bcr.deserialize(f"https://models.rcsb.org/{pdb_code}.bcif.gz")
+    for chain in structure.get_chains():
+        # get protein residues (disregarding waters, ...)
+        residues = list(filter(lambda res: res.id[0] == " ", chain.get_residues()))
+        sequence = [AMINO_ACIDS[res.get_resname()] for res in residues]
 
-    if len(bcr_results) > 1:
-        logging.warning(
-            f"Obtained {len(bcr_results)} for {pdb_code} on RCSB, selecting the first result"
-        )
-    elif not len(bcr_results):
-        logging.error(f"No result was found for {pdb_code} on RCSB")
-        exit(1)
-
-    # select first result by default (normally it should be len(bcr_results) == 1)
-    protein_pdbx = bcr_results[0]
-
-    # get ids of all polymer entities
-    sequences = {pol[0]: [] for pol in protein_pdbx.getObj("entity_poly")}
-    residue_ids = {pol[0]: [] for pol in protein_pdbx.getObj("entity_poly")}
-
-    # retrieve sequence of all polymer entities
-    for residue in protein_pdbx.getObj("entity_poly_seq"):
-        polymer_id = residue[0]
-        residue_name = residue[2]
-        residue_id = residue[1]
-        sequences[polymer_id].append(AMINO_ACIDS.get(residue_name) or "?")
-        residue_ids[polymer_id].append(residue_id)
-
-    logging.info(
-        f"Found {len(sequences)} polymer entities, proceeding on every entity separatly"
-    )
-
-    # a pdbx file can comprise several polymer entities
-    #   -> perform mapping on each entity with a seq_length >= number of binding pocket residues
-
-    for sequence_id, sequence in sequences.items():
+        logging.info(f"Proceed chain {chain.get_id()}")
         # skip sequences if  seq_length < number of binding pocket residues
         if len(sequence) < len(consensus_sequence):
             logging.info(
-                f"Skipping entity {sequence_id} since number of residues ({len(sequence)}) < {len(consensus_sequence)} (# KLIFS binding pocket residues))"
+                f"Skipping entity {chain.get_id()} since number of residues ({len(sequence)}) < {len(consensus_sequence)} (# KLIFS binding pocket residues))"
             )
             continue
 
@@ -197,49 +187,90 @@ if __name__ == "__main__":
         os.remove("seq1.fasta")
         os.remove("seq2.fasta")
 
-        # print some information on the result
+        # get result (highest alignmnent score + covering the whole pocket)
         hsp = next(
-            hsp
-            for aligment in blast_result_record.alignments
-            for hsp in aligment.hsps
-            if hsp.query_start == 1 and hsp.query_end == 85
+            (
+                hsp
+                for aligment in blast_result_record.alignments
+                for hsp in aligment.hsps
+                # ensure that query (pocket consensus sequence) is fully covered
+            ),
+            None,
         )
+
+        if not hsp:
+            logging.warning(
+                "Could not find an alignment for this sequence covering the whole binding pocket"
+            )
+            continue
 
         # parse alignment
-        hit_from = hsp.sbjct_start
+        hit_from = hsp.sbjct_start - 1  # 0-starting idx
         hit_to = hsp.sbjct_end
         query = hsp.query
-
         hit = hsp.sbjct
 
+        logging.info(f"Alignment found (score: {hsp.score}):\n\t{query}\n\t{hit}")
+
         # get KLIFS residue numbering mapping
-        mapping = {}
-        assert len(query) == len(residue_ids[sequence_id][hit_from - 1 : hit_to])
-        idx = 1
-        for q, id in zip(query, residue_ids[sequence_id][hit_from - 1 : hit_to]):
+
+        # fill start gaps (not included in alignment)
+        mapping = [
+            residues[hit_from - hsp.query_start + i].get_id()[1]
+            for i in range(1, hsp.query_start)
+        ]
+
+        for q, h in zip(query, hit):
+            # we are only interested in query (binding pocket) residues
+            # thus, we skip gaps ('-') in query sequence
             if q != "-":
-                mapping[idx] = id
-                idx += 1
+                # determine corresponding residue id of given pdb numbering
+                if h != "-":
+                    # match or missmatch -> add corrsponding residue id and proceed in sequence
+                    # otherwise add '?' and do not proceed
+                    mapping.append(residues[hit_from].get_id()[1])
+                    hit_from += 1
+                else:
+                    # deletion
+                    mapping.append("?")
+            else:
+                hit_from += 1
+
+        # fill open ends with missmathces
+        mapping += [
+            residues[hit_to - hsp.query_end + i].get_id()[1]
+            for i in range(hsp.query_end, 85)
+        ]
 
         # print full mapping
-        print("Mapping (KLIFS numbering: residue ID): ")
+        print(
+            "\n\033[1mMapping \033[0m\t| KLIFS numbering \t|\n\t\t| Residue ID \t\t|\n"
+        )
 
-        for klifs_idx in mapping:
-            print(f"\t{klifs_idx}: {mapping[klifs_idx]}")
+        for i in range(6):
+            for klifs_idx in range(i * 15, min((i + 1) * 15, len(mapping))):
+                print(f"| {klifs_idx + 1}", end="\t")
+            print("|")
+            for pdb_idx in mapping[i * 15 : min((i + 1) * 15, len(mapping))]:
+                print(f"| {pdb_idx}", end="\t")
+            print("|\n")
 
         # print subpocket and hinge residues
-        print(f"\nHinge (46, 48):\t\t[{mapping[46]}, {mapping[48]}]")
+        print("\033[1mSubpocket residues:\033[0m")
+        print(f"Hinge (46, 48):\t\t[{mapping[46 + 1]}, {mapping[48 + 1]}]")
         print(
-            f"AP (15, 46, 51, 75):\t{[mapping[15], mapping[46], mapping[51], mapping[75]]}",
+            f"AP (15, 46, 51, 75):\t{[mapping[15 + 1], mapping[46 + 1], mapping[51 + 1], mapping[75 + 1]]}",
         )
         print(
-            f"FP (10, 51, 72, 81):\t{[mapping[10], mapping[51], mapping[72], mapping[81]]}",
-        )
-        print(f"GA (17, 45, 81):\t{[mapping[17], mapping[45], mapping[81]]}")
-        print(f"SE (51):\t\t{[mapping[51]]}")
-        print(
-            f"B1 (28, 38, 43, 81):\t{[mapping[28], mapping[38], mapping[43], mapping[81]]}",
+            f"FP (10, 51, 72, 81):\t{[mapping[10 + 1], mapping[51 + 1], mapping[72 + 1], mapping[81 + 1]]}",
         )
         print(
-            f"B2 (18, 24, 70, 83):\t{[mapping[18], mapping[24], mapping[70], mapping[83]]}",
+            f"GA (17, 45, 81):\t{[mapping[17 + 1], mapping[45 + 1], mapping[81 + 1]]}"
+        )
+        print(f"SE (51):\t\t{[mapping[51 + 1]]}")
+        print(
+            f"B1 (28, 38, 43, 81):\t{[mapping[28 + 1], mapping[38 + 1], mapping[43 + 1], mapping[81 + 1]]}",
+        )
+        print(
+            f"B2 (18, 24, 70, 83):\t{[mapping[18 + 1], mapping[24 + 1], mapping[70 + 1], mapping[83 + 1]]}\n",
         )
