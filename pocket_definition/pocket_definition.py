@@ -1,48 +1,47 @@
+import argparse
 import logging
-
-from bravado.client import SwaggerClient
-from Bio.Blast.Applications import NcbiblastpCommandline
-from opencadd.structure.core import Structure
+import os
+import subprocess
+import sys
+from collections import defaultdict
 from io import StringIO
+
+from Bio import SeqIO
 from Bio.Blast import NCBIXML
+from Bio.Blast.Applications import NcbiblastpCommandline
+from Bio.PDB import PDBParser
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio import SeqIO
-from Bio.PDB import PDBParser
-import subprocess
-import argparse
-import os, sys
-
-from mmcif.io.BinaryCifReader import BinaryCifReader
+from bravado.client import SwaggerClient
 
 if __name__ == "__main__":
 
     # mapping of three letter code to one letter code of amino acids
-    AMINO_ACIDS = {
-        "CYS": "C",
-        "ASP": "D",
-        "SER": "S",
-        "GLN": "Q",
-        "LYS": "K",
-        "ILE": "I",
-        "PRO": "P",
-        "THR": "T",
-        "PHE": "F",
-        "ASN": "N",
-        "GLY": "G",
-        "HIS": "H",
-        "LEU": "L",
-        "ARG": "R",
-        "TRP": "W",
-        "ALA": "A",
-        "VAL": "V",
-        "GLU": "E",
-        "TYR": "Y",
-        "MET": "M",
-        "SEP": "?",
-        "TPO": "?",
-        "HOH": "W",
-    }
+    AMINO_ACIDS = defaultdict(
+        lambda: "?",
+        {
+            "CYS": "C",
+            "ASP": "D",
+            "SER": "S",
+            "GLN": "Q",
+            "LYS": "K",
+            "ILE": "I",
+            "PRO": "P",
+            "THR": "T",
+            "PHE": "F",
+            "ASN": "N",
+            "GLY": "G",
+            "HIS": "H",
+            "LEU": "L",
+            "ARG": "R",
+            "TRP": "W",
+            "ALA": "A",
+            "VAL": "V",
+            "GLU": "E",
+            "TYR": "Y",
+            "MET": "M",
+        },
+    )
 
     # parse command line arguments
     parser = argparse.ArgumentParser(
@@ -156,7 +155,7 @@ if __name__ == "__main__":
     os.remove("consensus.cons")
 
     # prepare structure of interest
-    pdb_parser = PDBParser()
+    pdb_parser = PDBParser(QUIET=True)
     structure = pdb_parser.get_structure(kinase_name, path_pdb)
 
     for chain in structure.get_chains():
