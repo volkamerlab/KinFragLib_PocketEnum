@@ -18,6 +18,7 @@ CONDA_SUBDIR=osx-64 conda env create -f environment.yml
 ```
 Activate the new environment:
 ```bash
+# activate the environment
 conda activate king_frag_lib_pocket_enum
 ```
 
@@ -30,6 +31,13 @@ git checkout custom-kinfraglib
 cd ..
 # now we can continue installing the package
 pip install -e KinFragLib
+```
+
+Install the `KinFragLib_PocketEnum` package itself (required to run the notebooks):
+```bash
+cd ..
+# install package
+pip install -e KinFragLib_PocketEnum
 ```
 
 ### Input
