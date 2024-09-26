@@ -21,7 +21,7 @@ CONDA_SUBDIR=osx-64 conda env create -f environment.yml
 Activate the new environment:
 ```bash
 # activate the environment
-conda activate king_frag_lib_pocket_enum
+conda activate kinfraglib_pocket_enum
 ```
 
 Download and install `KinFragLib` package:
