@@ -12,7 +12,8 @@ Preferable they should be placed within the root directory of the project.
 ### Installation & dependencies
 Create a conda environment containing all required packages:
 ```bash
-conda env create -f environment.yml```
+conda env create -f environment.yml
+```
 When using a MacBook with an M1 chip, you may need
 ```bash
 CONDA_SUBDIR=osx-64 conda env create -f environment.yml
