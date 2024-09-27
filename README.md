@@ -13,22 +13,20 @@ Preferable they should be placed within the root directory of the project.
 Create a conda environment containing all required packages:
 ```bash
 conda env create -f environment.yml
-# When using a MacBook with an M1 chip you may need:
+```
+When using a MacBook with an M1 chip, you may need
+```bash
 CONDA_SUBDIR=osx-64 conda env create -f environment.yml
 ```
 Activate the new environment:
 ```bash
 # activate the environment
-conda activate king_frag_lib_pocket_enum
+conda activate kinfraglib_pocket_enum
 ```
 
 Download and install `KinFragLib` package:
 ```bash
 git clone https://github.com/volkamerlab/KinFragLib.git
-# we need to change the branch since Custom-KinFragLib is not on the main branch yet:
-cd KinFragLib
-git checkout custom-kinfraglib
-cd ..
 # now we can continue installing the package
 pip install -e KinFragLib
 ```
