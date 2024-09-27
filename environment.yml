@@ -14,20 +14,20 @@ dependencies:
   - jupyterlab
   - matplotlib
   - numpy
-  - pandas=1.1.2
-  - rdkit=2021.09# https://github.com/rdkit/rdkit/issues/4425 , https://github.com/rdkit/rdkit/pull/4426
-  - scikit-learn
+  - pandas #=1.1.2
+  - rdkit=2021.09 # https://github.com/rdkit/rdkit/issues/4425 , https://github.com/rdkit/rdkit/pull/4426
   - seaborn
   - lich::syba
-  - redo
+  - fastcluster
   - opencadd
+  - redo
   ## CI tests
   # Workaround for https://github.com/computationalmodelling/nbval/issues/153
-  - pytest 5.*
+  - pytest 
   - pytest-xdist
   - nbval
   - shyaml
   - pip:
     - black-nb
-    # KinFragLib itself
+    # KinFragLib
     - https://github.com/volkamerlab/kinfraglib/archive/master.tar.gz
