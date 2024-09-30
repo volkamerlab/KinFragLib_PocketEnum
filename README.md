@@ -54,7 +54,7 @@ python3 src/fragment_docking.py -h
 If this is not wanted choose the option (3)
 
 ### Output
-All output files are located in a folder named with the PDB ID within the specified result directory (`<path_to_results_folder> / <PDB ID>`, e.g. `results/5n1f`):
+All output files are located in a folder named with the PDB ID followed by the submitting date within the specified result directory (`<path_to_results_folder> / <PDB ID>_<submit_date>`, e.g. `results/5n1f_2024_01_31`):
 * `program_statistics.json`: contains program statistics, such as the runtime, or quantities of the ligand generation process
 * `results.sdf`: comprising the generated ligands (for each ligand only the docking conformation of the highest scoring pose is given)
 * `SPx.sdf`: comprising *all* docking conformations of the ligands that have been docking in the `x`-th iteration
