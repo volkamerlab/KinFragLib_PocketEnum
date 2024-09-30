@@ -1,10 +1,8 @@
 import pandas as pd
 from rdkit import Chem, Geometry
-from rdkit.Chem import Descriptors, Lipinski, QED, Draw, AllChem, DataStructs
+from rdkit.Chem import AllChem, DataStructs
 import json
-from kinfraglib import utils
-import matplotlib.pyplot as plt
-import seaborn as sns
+from kinfraglib.utils import standardize_mol
 from rdkit.Chem.Draw import rdMolDraw2D, rdDepictor
 from statistics import mean
 
@@ -121,7 +119,7 @@ def read_mols(path_to_mols):
             get_binding_affinity(mol),
             float(mol.GetProp("BIOSOLVEIT.DOCKING_SCORE")),
             get_number_of_fragments(mol),
-            Chem.MolToInchi(utils.standardize_mol(mol)),
+            Chem.MolToInchi(standardize_mol(mol)),
         ]  # 3D conformation of ligand
         + get_fragmnent_ids(mol, SUBPOCKETS)
         + get_fragmnent_smiles(mol, SUBPOCKETS)
