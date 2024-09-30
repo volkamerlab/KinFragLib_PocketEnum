@@ -437,7 +437,7 @@ def highlight_molecules(molecules, mcs, number, label=True, same_orientation=Tru
         molsPerRow=2,
         highlightAtomLists=matching[:number],
         subImgSize=(300, 200),
-        returnPNG=False
+        returnPNG=False,
         **kwargs,
     )
 
@@ -456,5 +456,4 @@ def save_chemb_mcs_to_file(most_similar_chembl_compounds, most_similar_pka_compo
             if i:
                 mol.SetProp('_Name', "")  
         img = highlight_molecules(mols, mcs1, len(mols), same_orientation=True)
-        with open(directory / f"{chembl_id}.png", "wb") as png:
-            png.write(img.data)
+        img.save(directory / f"{chembl_id}.png")
