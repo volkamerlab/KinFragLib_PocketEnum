@@ -1,16 +1,19 @@
-import pandas as pd
-from rdkit import Chem, Geometry
-from rdkit.Chem import AllChem, DataStructs
+import copy
 import json
-from kinfraglib.utils import standardize_mol
-from rdkit.Chem.Draw import rdMolDraw2D, rdDepictor
+from collections import defaultdict
+from copy import deepcopy
+from io import BytesIO
 from statistics import mean
 
-from collections import defaultdict
-
+import pandas as pd
+from chembl_webresource_client.new_client import new_client
+from kinfraglib.utils import standardize_mol
 from PIL import Image as pilImage
-from io import BytesIO
-import copy
+from rdkit.Chem import rdFMCS
+from rdkit import Chem, Geometry
+from rdkit.Chem import AllChem, DataStructs, Draw
+from rdkit.Chem.Draw import rdDepictor, rdMolDraw2D
+from tqdm.auto import tqdm
 
 SUBPOCKETS = ["AP", "SE", "FP", "GA", "B1", "B2"]
 
@@ -365,7 +368,7 @@ def tanimoto_similarity_matrix(fingerprints) -> list:
     Parameters
     ----------
     all_fingerprints : Iterable
-        Fingerprints of of all ligans
+        Fingerprints of of all ligands
 
     Returns
     -------
@@ -373,3 +376,85 @@ def tanimoto_similarity_matrix(fingerprints) -> list:
         Similarity matrix
     """
     return [DataStructs.BulkTanimotoSimilarity(fp, fingerprints) for fp in fingerprints]
+
+
+def get_chembl_compounds_from_id(chembl_ids: list) -> pd.DataFrame:
+    """
+    Retrives ChEMBL compounds from given IDs
+
+    Parameters
+    ----------
+    chembl_ids : list()
+        List of ChEMBL IDs
+
+    Returns
+    -------
+    DatFrame
+        ChEMBL compounds (ID, smiles, ROMol)
+    """
+
+    # get compounds from client
+    compounds_api = new_client.molecule
+    compounds_provider = compounds_api.filter(
+        molecule_chembl_id__in = chembl_ids
+    ).only("molecule_chembl_id", "molecule_structures")
+
+    compounds = [[
+        compound['molecule_chembl_id'],
+        Chem.rdmolfiles.MolFromMolBlock(compound['molecule_structures']['molfile']),
+        compound['molecule_structures']['standard_inchi']
+    ] for compound in tqdm(compounds_provider)]
+
+    return pd.DataFrame(
+        compounds,
+        columns=["chembl_id", "ROMol", "inchi"],
+    )
+
+def highlight_molecules(molecules, mcs, number, label=True, same_orientation=True, **kwargs):
+    """Highlight the MCS in our query molecules
+    Function taken and adapted from https://github.com/volkamerlab/teachopencadd/blob/master/teachopencadd/talktorials/T006_compound_maximum_common_substructures/talktorial.ipynb
+    """
+    molecules = deepcopy(molecules)
+    # convert MCS to molecule
+    pattern = Chem.MolFromSmarts(mcs.smartsString)
+    rdDepictor.Compute2DCoords(pattern)
+    # find the matching atoms in each molecule
+    matching = [molecule.GetSubstructMatch(pattern) for molecule in molecules[:number]]
+
+    legends = None
+    if label is True:
+        legends = [x.GetProp("_Name") for x in molecules]
+
+    # Align by matched substructure so they are depicted in the same orientation
+    # Adapted from: https://gist.github.com/greglandrum/82d9a86acb3b00d3bb1df502779a5810
+    if same_orientation:
+        for mol in molecules:
+            rdDepictor.GenerateDepictionMatching2DStructure(mol, pattern)
+    
+    return Draw.MolsToGridImage(
+        molecules[:number],
+        legends=legends,
+        molsPerRow=2,
+        highlightAtomLists=matching[:number],
+        subImgSize=(300, 200),
+        returnPNG=False
+        **kwargs,
+    )
+
+def save_chemb_mcs_to_file(most_similar_chembl_compounds, most_similar_pka_compounds, directory):
+    """ Determines the MCS between each ChEMBL compound and the respective given compounds and saves them to png"""
+
+    for id in most_similar_chembl_compounds.index:
+        mol_chembl = [most_similar_chembl_compounds['ROMol'][id]]
+        chembl_id = most_similar_chembl_compounds['chembl_id'][id]
+        mol_chembl[0].SetProp('_Name', "")
+        mols = mol_chembl + [most_similar_pka_compounds[most_similar_pka_compounds['most_similar_chembl_ligand.chembl_id'] == chembl_id]['ROMol'].iloc[0]]
+        mcs1 = rdFMCS.FindMCS(mols, ringMatchesRingOnly=True, completeRingsOnly=True)
+        m1 = Chem.MolFromSmarts(mcs1.smartsString)
+        for i, mol in enumerate(mols):
+            rdDepictor.Compute2DCoords(mol)
+            if i:
+                mol.SetProp('_Name', "")  
+        img = highlight_molecules(mols, mcs1, len(mols), same_orientation=True)
+        with open(directory / f"{chembl_id}.png", "wb") as png:
+            png.write(img.data)

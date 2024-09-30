@@ -125,7 +125,7 @@ if __name__ == "__main__":
     )
 
     # add id and similarity of most similar chembl ligands
-    data["most_similar_chembl_ligand.compound_id"] = [
+    data["most_similar_chembl_ligand.chembl_id"] = [
         res[0] for res in most_similar_chembl_ligands
     ]
     data["most_similar_chembl_ligand.similarity"] = [
