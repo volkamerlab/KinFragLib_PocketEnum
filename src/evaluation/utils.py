@@ -77,7 +77,7 @@ def get_fragmnent_ids(mol, subpockets):
     return [fragment_ids.get(sp) for sp in subpockets]
 
 
-def get_fragmnent_smiles(mol, subpockets):
+def get_fragmnent_smiles(mol, subpockets, dummy_atoms = False):
     """
     Extracts smiles of fragments from given ligand
 
@@ -94,7 +94,7 @@ def get_fragmnent_smiles(mol, subpockets):
         fragment ids in order of subpockets list
     """
 
-    fragment_smiles = json.loads(mol.GetProp("smiles_fragments").replace("'", '"'))
+    fragment_smiles = json.loads(mol.GetProp("smiles_fragments_dummy" if dummy_atoms else "smiles_fragments").replace("'", '"'))
 
     return [fragment_smiles.get(sp) for sp in subpockets]
 
@@ -114,8 +114,6 @@ def read_mols(path_to_mols):
         ligands details details, i.e. SMILES, and RDKit molecules.
     """
 
-    to_dict_probs = ["fragment_ids", "smiles_fragments_dummy", "smiles_fragments"]
-
     data = [
         [
             mol,
@@ -123,18 +121,21 @@ def read_mols(path_to_mols):
             float(mol.GetProp("BIOSOLVEIT.DOCKING_SCORE")),
             get_number_of_fragments(mol),
             Chem.MolToInchi(standardize_mol(mol)),
-        ]  # 3D conformation of ligand
-        + get_fragmnent_ids(mol, SUBPOCKETS)
+        ] 
         + get_fragmnent_smiles(mol, SUBPOCKETS)
+        + get_fragmnent_smiles(mol, SUBPOCKETS, dummy_atoms=True)
         for mol in Chem.SDMolSupplier(str(path_to_mols), removeHs=False)
     ]
 
     data_df = pd.DataFrame(
         data,
         columns=["ROMol", "binding_affinity", "docking_score", "num_fragments", "inchi"]
-        + SUBPOCKETS
-        + [sp + "_smiles" for sp in SUBPOCKETS],
-    ).apply(lambda x: x.apply(json.loads) if x.name in to_dict_probs else x)
+        + [sp + "_smiles" for sp in SUBPOCKETS]
+        + [sp + "_smiles_dummy" for sp in SUBPOCKETS],
+    )
+
+    # drop NA columns (columns where all entries are None/NA)
+    data_df = data_df.dropna(axis=1, how='all').reset_index()
 
     return data_df
 
