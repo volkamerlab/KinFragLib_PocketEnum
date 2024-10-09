@@ -124,6 +124,7 @@ def read_mols(path_to_mols):
         ] 
         + get_fragmnent_smiles(mol, SUBPOCKETS)
         + get_fragmnent_smiles(mol, SUBPOCKETS, dummy_atoms=True)
+        + get_fragmnent_ids(mol, SUBPOCKETS)
         for mol in Chem.SDMolSupplier(str(path_to_mols), removeHs=False)
     ]
 
@@ -131,11 +132,12 @@ def read_mols(path_to_mols):
         data,
         columns=["ROMol", "binding_affinity", "docking_score", "num_fragments", "inchi"]
         + [sp + "_smiles" for sp in SUBPOCKETS]
-        + [sp + "_smiles_dummy" for sp in SUBPOCKETS],
+        + [sp + "_smiles_dummy" for sp in SUBPOCKETS]
+        + SUBPOCKETS,
     )
 
     # drop NA columns (columns where all entries are None/NA)
-    data_df = data_df.dropna(axis=1, how='all').reset_index()
+    data_df = data_df.dropna(axis=1, how='all')
 
     return data_df
 
