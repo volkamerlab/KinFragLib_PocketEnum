@@ -1,6 +1,6 @@
 FROM mambaorg/micromamba:1.4.3
 USER root
-COPY --chown=kabu00002:kabu00002 env.yaml /tmp/env.yaml
+COPY --chown=kabu00002:kabu00002 environment.yml /tmp/env.yaml
 ARG MAMBA_DOCKERFILE_ACTIVATE=1
 RUN apt-get update && \
         apt-get -y install sudo \
@@ -25,9 +25,6 @@ RUN micromamba install -y -n base -f /tmp/env.yaml && \
 # SHELL ["conda", "run", "-n", "myenv", "/bin/bash", "-c"]
 
 RUN git clone https://github.com/volkamerlab/KinFragLib.git && \
-        cd KinFragLib && \
-        git checkout custom-kinfraglib && \ 
-        cd .. && \
         pip install -e KinFragLib
 
 ENV WANDB_API_KEY=69f9afbfc535218e5c6bf7047611cef2ab5d5f40

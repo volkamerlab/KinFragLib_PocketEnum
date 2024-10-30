@@ -1,5 +1,6 @@
 # Project Structure Refractoring
 
+
 ## Configuration
 Collect the conifgurations from the config file to reduce this overload of arguments for different functions + config handling is not performed in main
 - [] class config

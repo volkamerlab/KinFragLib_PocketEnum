@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kinfraglib_pocket_enum"
+version = "1.0.0"
+description = "KinFragLib PocketEnum"
+authors = [
+    { name = "Volkamer Lab", email = "volkamer@cs.uni-saarland.de" }
+]
+urls = { "Homepage" = "https://github.com/volkamerlab/KinFragLib_PocketEnum" }
+
+classifiers = [
+    "Programming Language :: Python :: 3.9",
+    "Operating System :: Unix"
+]
+
+[tool.setuptools.packages]
+find = {}
+
