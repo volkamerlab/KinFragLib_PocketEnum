@@ -1,5 +1,6 @@
 from kinfraglib import utils, filters
 from rdkit import Chem
+from rdkit.Chem import rdFMCS
 import logging
 import time
 import sys
@@ -13,6 +14,8 @@ from classes.config import Config
 from tasks.core_docking import core_docking_task
 from tasks.template_docking import template_docking_task
 from tasks._utils import prepare_core_fragments
+from tasks.compound_filtering import cluster_based_compound_filtering
+from utils._utils import seed_everything
 
 from utils.io_handling import (
     write_all_poses_to_file,
@@ -78,11 +81,15 @@ if __name__ == "__main__":
         "CoreSubpocket": config.core_subpocket,
         "Subpockets": config.subpockets,
         "UsedHyde": config.use_hyde,
-        "HydeDisplacementCutoff": config.hyde_displacement_cutoff if config.use_hyde else None,
+        "HydeDisplacementCutoff": (
+            config.hyde_displacement_cutoff if config.use_hyde else None
+        ),
         "NumberPosesPerFragment": config.poses_per_fragment,
         "NumberFragmentsPerIterations": config.fragments_per_iteration,
         "UseClusterBasedPoseFiltering": config.cluster_based,
-        "DistanceThresholdClustering": config.cluster_threshold if config.cluster_based else None,
+        "DistanceThresholdClustering": (
+            config.cluster_threshold if config.cluster_based else None
+        ),
         "Filters": [filter.name for filter in config.filters],
         "GeneratedPoses": {},
         "ChosenPoses": {},
@@ -101,6 +108,9 @@ if __name__ == "__main__":
         "NumMultipleBondsBetweenFragmentAndLigand": {},
         "NumMultipleBondsBetweenTwoFragments": {},
     }
+
+    # set seeds
+    seed_everything(config.seed)
 
     # ==== PREPROCESSING =======
 
@@ -129,18 +139,30 @@ if __name__ == "__main__":
     fragment_library = filters.prefilters.pre_filters(fragment_library_original)
     logging.debug(
         "Finished prefiltering: "
-        + str([sp + ": " + str(len(fragment_library[sp])) for sp in fragment_library.keys()])
+        + str(
+            [
+                sp + ": " + str(len(fragment_library[sp]))
+                for sp in fragment_library.keys()
+            ]
+        )
     )
 
     # apply filters
     for filter in config.filters:
         logging.debug("Applying filter: " + filter.name)
-        l_before = [sp + ": " + str(len(fragment_library[sp])) for sp in fragment_library.keys()]
+        l_before = [
+            sp + ": " + str(len(fragment_library[sp])) for sp in fragment_library.keys()
+        ]
         fragment_library = filter.apply_filter(fragment_library)
         logging.debug(
             filter.name
             + " applied: "
-            + str([sp + ": " + str(len(fragment_library[sp])) for sp in fragment_library.keys()])
+            + str(
+                [
+                    sp + ": " + str(len(fragment_library[sp]))
+                    for sp in fragment_library.keys()
+                ]
+            )
         )
 
     # determine size of fragment library and log it
@@ -161,7 +183,9 @@ if __name__ == "__main__":
 
     if config.core_subpocket not in fragment_library:
         logging.error("Fragment library must at least contain 1 core fragment")
-        raise Exception("Fragment library must at least contain 1 core fragment but was 0")
+        raise Exception(
+            "Fragment library must at least contain 1 core fragment but was 0"
+        )
 
     core_fragments = prepare_core_fragments(fragment_library, config)
 
@@ -201,8 +225,12 @@ if __name__ == "__main__":
     output_logs["RunTimeCoreDocking"] = time.strftime(
         "%H:%M:%S", time.gmtime(round(time.time() - start_time, 2))
     )
-    output_logs["GeneratedPoses"]["SP0"] = sum(len(mol.poses) for mol in docking_results)
-    output_logs["UndockableMolecules"]["SP0"] = len(core_fragments) - len(docking_results)
+    output_logs["GeneratedPoses"]["SP0"] = sum(
+        len(mol.poses) for mol in docking_results
+    )
+    output_logs["UndockableMolecules"]["SP0"] = len(core_fragments) - len(
+        docking_results
+    )
     output_logs["DockedMolecules"]["SP0"] = len(docking_results)
     output_logs["MeanHydeDisplacement"]["SP0"] = sum(
         mol.mean_hyde_displacement_undropped for mol in docking_results
@@ -248,9 +276,9 @@ if __name__ == "__main__":
         docking_results_pre_filtering = docking_results.copy()
 
         # choose n best fragments
-        docking_results = docking_results[
-            : min(len(docking_results), config.fragments_per_iteration)
-        ]
+        docking_results = cluster_based_compound_filtering(
+            docking_results, config.fragments_per_iteration, config, subpocket
+        )
 
         # choose k best conformers (per fragment)
         for ligand in docking_results:
@@ -262,11 +290,11 @@ if __name__ == "__main__":
                 ligand.choose_template_poses(config.poses_per_fragment)
 
         # log chosen poses and molecules
-        output_logs["ChosenMolecules"]["SP" + str(config.subpockets.index(subpocket))] = len(
-            docking_results
-        )
-        output_logs["ChosenPoses"]["SP" + str(config.subpockets.index(subpocket))] = sum(
-            len(mol.poses) for mol in docking_results
+        output_logs["ChosenMolecules"][
+            "SP" + str(config.subpockets.index(subpocket))
+        ] = len(docking_results)
+        output_logs["ChosenPoses"]["SP" + str(config.subpockets.index(subpocket))] = (
+            sum(len(mol.poses) for mol in docking_results)
         )
 
         # store the best pose of a docked molecule if it consists of more than 1 fragment in the overall result file
@@ -281,7 +309,8 @@ if __name__ == "__main__":
         write_all_poses_to_file(
             docking_results_pre_filtering,
             docking_results,
-            config.path_results / ("SP" + str(config.subpockets.index(subpocket)) + ".sdf"),
+            config.path_results
+            / ("SP" + str(config.subpockets.index(subpocket)) + ".sdf"),
         )
 
         # recombining
@@ -326,7 +355,10 @@ if __name__ == "__main__":
         start_time = time.time()
 
         wandb.log(
-            {"total_frags_SP" + str(config.subpockets.index(subpocket) + 1): num_recombinations}
+            {
+                "total_frags_SP"
+                + str(config.subpockets.index(subpocket) + 1): num_recombinations
+            }
         )
         docking_run_counter = 0
 
@@ -334,7 +366,11 @@ if __name__ == "__main__":
             # submit template docking tasks
             features = [
                 executor.submit(
-                    template_docking_task, config, subpocket, recombination, ligand.poses
+                    template_docking_task,
+                    config,
+                    subpocket,
+                    recombination,
+                    ligand.poses,
                 )
                 for ligand in candidates
                 for recombination in ligand.recombinations
@@ -345,13 +381,17 @@ if __name__ == "__main__":
                     # get docking result
                     result = feature.result()
                 except Exception as exc:
-                    logging.error("Generated an exception during template_docking: %s" % (exc))
+                    logging.error(
+                        "Generated an exception during template_docking: %s" % (exc)
+                    )
                 else:
                     docking_run_counter += 1
                     wandb.log(
                         {
                             "docked_frags_SP"
-                            + str(config.subpockets.index(subpocket) + 1): docking_run_counter
+                            + str(
+                                config.subpockets.index(subpocket) + 1
+                            ): docking_run_counter
                         }
                     )
                     if len(result) == 3:
@@ -362,23 +402,27 @@ if __name__ == "__main__":
                     elif len(result) == 1:
                         # could not genrate the 3d conformation
                         unsuccesfull_3d_generations += result
-                        num_docking_runs -= len(result[0].poses) * len(result[0].recombinations)
+                        num_docking_runs -= len(result[0].poses) * len(
+                            result[0].recombinations
+                        )
 
-        logging.info(f"Runtime template-docking ({subpocket}): {(time.time() - start_time)}")
+        logging.info(
+            f"Runtime template-docking ({subpocket}): {(time.time() - start_time)}"
+        )
 
         # template docking logs
         output_logs["RunTimeTemplateDocking"][
             "SP" + str(config.subpockets.index(subpocket) + 1)
         ] = time.strftime("%H:%M:%S", time.gmtime(time.time() - start_time))
-        output_logs["GeneratedPoses"]["SP" + str(config.subpockets.index(subpocket) + 1)] = sum(
-            len(mol.poses) for mol in docking_results
-        )
+        output_logs["GeneratedPoses"][
+            "SP" + str(config.subpockets.index(subpocket) + 1)
+        ] = sum(len(mol.poses) for mol in docking_results)
         output_logs["UndockableMolecules"][
             "SP" + str(config.subpockets.index(subpocket) + 1)
         ] = num_recombinations - len(docking_results)
-        output_logs["DockedMolecules"]["SP" + str(config.subpockets.index(subpocket) + 1)] = len(
-            docking_results
-        )
+        output_logs["DockedMolecules"][
+            "SP" + str(config.subpockets.index(subpocket) + 1)
+        ] = len(docking_results)
         output_logs["MeanHydeDisplacement"][
             "SP" + str(config.subpockets.index(subpocket) + 1)
         ] = sum(mol.mean_hyde_displacement_undropped for mol in docking_results) / (
@@ -438,7 +482,10 @@ if __name__ == "__main__":
             "Best recombination: "
             + str(list(docking_results[0].fragment_ids.items()))
             + " Score: "
-            + str(docking_results[0].min_binding_affinity or docking_results[0].min_docking_score)
+            + str(
+                docking_results[0].min_binding_affinity
+                or docking_results[0].min_docking_score
+            )
         )
 
         # store generated ligands

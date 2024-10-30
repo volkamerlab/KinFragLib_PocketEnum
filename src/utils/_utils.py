@@ -1,5 +1,8 @@
 from rdkit.Chem import rdMolAlign
 
+import random
+import os
+
 
 def calc_distance_matrix(molecules: list) -> list:
     """
@@ -18,3 +21,10 @@ def calc_distance_matrix(molecules: list) -> list:
         for i in range(len(molecules))
         for j in range(i)
     ]
+
+def seed_everything(seed: int = 41):
+    """ Code adapted from TeachOpenCADD
+    Set seeds
+    """
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
