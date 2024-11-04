@@ -3,6 +3,7 @@ from rdkit import Chem
 from rdkit.Chem import rdFMCS
 import logging
 import time
+from datetime import datetime
 import sys
 import wandb
 import argparse
@@ -77,6 +78,7 @@ if __name__ == "__main__":
 
     # prepare directory storing all inforamtion for output json log file
     output_logs = {
+        "StartingTime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "pdbCode": config.pdb_code,
         "CoreSubpocket": config.core_subpocket,
         "Subpockets": config.subpockets,
@@ -86,9 +88,9 @@ if __name__ == "__main__":
         ),
         "NumberPosesPerFragment": config.poses_per_fragment,
         "NumberFragmentsPerIterations": config.fragments_per_iteration,
-        "UseClusterBasedPoseFiltering": config.cluster_based,
+        "UseClusterBasedPoseFiltering": config.cluster_based_pose_selection,
         "DistanceThresholdClustering": (
-            config.cluster_threshold if config.cluster_based else None
+            config.cluster_threshold if config.cluster_based_pose_selection else None
         ),
         "Filters": [filter.name for filter in config.filters],
         "GeneratedPoses": {},
@@ -133,7 +135,7 @@ if __name__ == "__main__":
 
     logging.debug("Start prefiltering")
     # removing fragments in pool X
-    # removing duplicates  # TODO according to smiles with dummy
+    # removing duplicates
     # removing fragments without dummy atoms (unfragmented ligands)
     # removing fragments only connecting to pool X
     fragment_library = filters.prefilters.pre_filters(fragment_library_original)
@@ -275,14 +277,21 @@ if __name__ == "__main__":
         # save state before filtering
         docking_results_pre_filtering = docking_results.copy()
 
-        # choose n best fragments
-        docking_results = cluster_based_compound_filtering(
-            docking_results, config.fragments_per_iteration, config, subpocket
-        )
+        # fragment filtering
+        if config.cluster_based_fragment_selection:
+            # choose n fragments in cluster-based manner (for diversity)
+            docking_results = cluster_based_compound_filtering(
+                docking_results, config.fragments_per_iteration, config, subpocket
+            )
+        else:
+            # choose n best fragments (greedy ligand selection)
+            docking_results = docking_results[
+                : min(len(docking_results), config.fragments_per_iteration)
+            ]
 
         # choose k best conformers (per fragment)
         for ligand in docking_results:
-            if config.cluster_based:
+            if config.cluster_based_pose_selection:
                 ligand.choose_template_poses_cluster_based(
                     config.poses_per_fragment, config.cluster_threshold
                 )
@@ -464,12 +473,16 @@ if __name__ == "__main__":
     output_logs["RunTimeTotal"] = time.strftime(
         "%H:%M:%S", time.gmtime(round(time.time() - start_time_all, 2))
     )
+
     logging.info("Runtime: %s" % (time.time() - start_time_all))
+
+    # log current time/date
+    output_logs["FinishTime"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
     # ===== EVALUATION ======
 
     # write logs to json output file
-    with open(args.output, "w") as json_file:
+    with open(config.path_results / args.output, "w") as json_file:
         json.dump(output_logs, json_file, indent=4)
 
     if len(docking_results):

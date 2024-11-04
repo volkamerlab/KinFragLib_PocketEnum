@@ -58,8 +58,10 @@ class Config:
         self.fragments_per_iteration: int = None
         self.poses_per_fragment: int = None
         self.filters: list = None
-        self.cluster_based: bool = None
+        self.cluster_based_pose_selection: bool = None
         self.cluster_threshold: float = None
+        self.cluster_based_fragment_selection: bool = None
+        self.P: int = None
         self.hyde_displacement_cutoff: float = None
         self.use_hyde: bool = None
         self.path_hyde = None
@@ -90,19 +92,32 @@ class Config:
         self.subpockets: list = definitions["Subpockets"]
         self.fragments_per_iteration: int = definitions["NumberFragmentsPerIterations"]
         self.poses_per_fragment: int = definitions["NumberPosesPerFragment"]
-        self.cluster_based: bool = definitions["UseClusterBasedPoseFiltering"]
+        self.cluster_based_pose_selection: bool = definitions[
+            "UseClusterBasedPoseFiltering"
+        ]
 
-        if self.cluster_based:
+        self.cluster_based_fragment_selection: bool = definitions[
+            "UseClusterBasedFragmentFiltering"
+        ]
+
+        if self.cluster_based_pose_selection:
             self.cluster_threshold = definitions.get("HydeDisplacementCutoff") or 2.5
+
+        if self.cluster_based_fragment_selection:
+            self.P = definitions.get("PSoftMin") or 1
 
         self.use_hyde = definitions["UseHyde"]
 
         if self.use_hyde:
-            self.hyde_displacement_cutoff = definitions.get("HydeDisplacementCutoff") or 2.5
+            self.hyde_displacement_cutoff = (
+                definitions.get("HydeDisplacementCutoff") or 2.5
+            )
 
         self.num_threads = definitions.get("NumberThreads")
 
-        self.filters = [Filter(name, values) for name, values in definitions["Filters"].items()]
+        self.filters = [
+            Filter(name, values) for name, values in definitions["Filters"].items()
+        ]
 
         self.seed = definitions.get("Seed") or 42
 
