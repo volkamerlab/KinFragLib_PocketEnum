@@ -1,5 +1,6 @@
 from kinfraglib import utils, filters
 from rdkit import Chem
+from rdkit.Chem import rdFMCS
 import logging
 import time
 from datetime import datetime
