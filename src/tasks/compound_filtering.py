@@ -246,7 +246,7 @@ def _save_clusters_to_image(folder: Path, subpocket: str, clusters: list):
         img.save(f"{folder}/cluster_{i}_{subpocket}.png")
 
 
-def _sort_clusters(clusters: list, scores: list) -> Tuple[list, list]:
+def _sort_clusters(clusters: list, scores: list):
     """
     Sorts clusters and scores synchronous based on scores, such that they still correspont to each other
 
