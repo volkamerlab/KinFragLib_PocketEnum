@@ -56,7 +56,7 @@ def get_number_of_fragments(mol):
     return len(json.loads(mol.GetProp("fragment_ids").replace("'", '"')))
 
 
-def get_fragmnent_ids(mol, subpockets):
+def get_fragment_ids(mol, subpockets):
     """
     Extracts fragment_ids from given ligand
 
@@ -124,7 +124,7 @@ def read_mols(path_to_mols):
         ] 
         + get_fragment_smiles(mol, SUBPOCKETS)
         + get_fragment_smiles(mol, SUBPOCKETS, dummy_atoms=True)
-        + get_fragmnent_ids(mol, SUBPOCKETS)
+        + get_fragment_ids(mol, SUBPOCKETS)
         for mol in Chem.SDMolSupplier(str(path_to_mols), removeHs=False)
     ]
 
