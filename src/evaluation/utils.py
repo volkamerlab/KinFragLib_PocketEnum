@@ -77,7 +77,7 @@ def get_fragmnent_ids(mol, subpockets):
     return [fragment_ids.get(sp) for sp in subpockets]
 
 
-def get_fragmnent_smiles(mol, subpockets, dummy_atoms = False):
+def get_fragment_smiles(mol, subpockets, dummy_atoms = False):
     """
     Extracts smiles of fragments from given ligand
 
@@ -122,8 +122,8 @@ def read_mols(path_to_mols):
             get_number_of_fragments(mol),
             Chem.MolToInchi(standardize_mol(mol)),
         ] 
-        + get_fragmnent_smiles(mol, SUBPOCKETS)
-        + get_fragmnent_smiles(mol, SUBPOCKETS, dummy_atoms=True)
+        + get_fragment_smiles(mol, SUBPOCKETS)
+        + get_fragment_smiles(mol, SUBPOCKETS, dummy_atoms=True)
         + get_fragmnent_ids(mol, SUBPOCKETS)
         for mol in Chem.SDMolSupplier(str(path_to_mols), removeHs=False)
     ]
@@ -142,10 +142,26 @@ def read_mols(path_to_mols):
     return data_df
 
 
-# from adapted from https://greglandrum.github.io/rdkit-blog/posts/2021-08-07-rgd-and-highlighting.html
+# code from adapted from https://greglandrum.github.io/rdkit-blog/posts/2021-08-07-rgd-and-highlighting.html
 def highlight_scaffold(
     mol, patt, color, width=350, height=200, fillRings=True, legend=""
 ):
+    """
+    Highlights pattern in given molecule.
+
+    Parameters
+    ----------
+    mol : ROMol
+        molecule 
+    patt : ROMol
+        pattern to highlight
+
+    Returns
+    -------
+    PNG
+        PNG of highlighted molecule
+    """
+        
     # copy the molecule and core
     mol = Chem.Mol(mol)
 
@@ -223,12 +239,29 @@ def highlight_scaffold(
     png = d2d.GetDrawingText()
     return png
 
+# code from adapted from https://greglandrum.github.io/rdkit-blog/posts/2021-08-07-rgd-and-highlighting.html
+def highlight_scaffold_multiple(ms, pattern, legends=None, n_per_row=5, sub_image_size=(250, 200)):
+    """
+    Highlights pattern in respective molecules.
 
-def draw_multiple(ms, pattern, legends=None, nPerRow=5, subImageSize=(250, 200)):
-    # "Tol" colormap from https://davidmathlogic.com/colorblind
-    # colors = [(51,34,136),(17,119,51),(68,170,153),(136,204,238),(221,204,119),(204,102,119),(170,68,153),(136,34,85)]
-    # "IBM" colormap from https://davidmathlogic.com/colorblind
-    # colors = [(100,143,255),(120,94,240),(220,38,127),(254,97,0),(255,176,0)]
+    Parameters
+    ----------
+    ms : list(ROMol)
+        List of molecules
+    patt : ROMol
+        List of pattern to highlight in molcecule of ms with the same in index
+    legends : list(string)
+        Legends for ech molecule
+    n_per_row : int
+        Number of molecules per row
+    sub_image_size : tuple
+        Size of subimages
+
+    Returns
+    -------
+    PNG
+        Image with highlighted molecules
+    """
     # Okabe_Ito colormap from https://jfly.uni-koeln.de/color/
     colors = [
         (0, 158, 115),
@@ -242,16 +275,16 @@ def draw_multiple(ms, pattern, legends=None, nPerRow=5, subImageSize=(250, 200))
     for i, x in enumerate(colors):
         colors[i] = tuple(y / 255 for y in x)
 
-    nRows = len(ms) // nPerRow
-    if len(ms) % nPerRow:
+    nRows = len(ms) // n_per_row
+    if len(ms) % n_per_row:
         nRows += 1
-    nCols = nPerRow
-    imgSize = (subImageSize[0] * nCols, subImageSize[1] * nRows)
+    nCols = n_per_row
+    imgSize = (sub_image_size[0] * nCols, sub_image_size[1] * nRows)
     res = pilImage.new("RGB", imgSize)
 
     for i, m in enumerate(ms):
-        col = i % nPerRow
-        row = i // nPerRow
+        col = i % n_per_row
+        row = i // n_per_row
         if legends:
             legend = legends[i]
         else:
@@ -260,13 +293,13 @@ def draw_multiple(ms, pattern, legends=None, nPerRow=5, subImageSize=(250, 200))
             m,
             pattern[i],
             legend=legend,
-            width=subImageSize[0],
-            height=subImageSize[1],
-            color=colors[i // nPerRow],
+            width=sub_image_size[0],
+            height=sub_image_size[1],
+            color=colors[i // n_per_row],
         )
         bio = BytesIO(png)
         img = pilImage.open(bio)
-        res.paste(img, box=(col * subImageSize[0], row * subImageSize[1]))
+        res.paste(img, box=(col * sub_image_size[0], row * sub_image_size[1]))
     bio = BytesIO()
     res.save(bio, format="PNG")
     return bio.getvalue()
@@ -306,7 +339,7 @@ def draw_colored_scaffold_ligands(data):
         scaffolds_pattern += _patt
         legend += [f"Scaffold {i} compound" for _ in range(5)]
 
-    return draw_multiple(mols, scaffolds_pattern, legends=legend)
+    return highlight_scaffold_multiple(mols, scaffolds_pattern, legends=legend)
 
 
 def tanimoto_distance_matrix(fp_list):
