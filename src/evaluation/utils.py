@@ -99,7 +99,7 @@ def get_fragment_smiles(mol, subpockets, dummy_atoms = False):
     return [fragment_smiles.get(sp) for sp in subpockets]
 
 
-def read_mols(path_to_mols):
+def read_mols(path_to_mols, remove_dupliactes=True):
     """
     Read ligands from result file.
 
@@ -107,6 +107,9 @@ def read_mols(path_to_mols):
     ----------
     path_to_lib : str
         Path to results .sdf file.
+    remove_duplicates : bool
+        If true, molecules are deduplicated such the only the one with the best binding affinity is kept. 
+        Note: duplicates might appear since similar fragments might have different dummy atoms.
 
     Returns
     -------
@@ -134,10 +137,13 @@ def read_mols(path_to_mols):
         + [sp + "_smiles" for sp in SUBPOCKETS]
         + [sp + "_smiles_dummy" for sp in SUBPOCKETS]
         + SUBPOCKETS,
-    )
+    ).sort_values(by=['binding_affinity'])
 
     # drop NA columns (columns where all entries are None/NA)
     data_df = data_df.dropna(axis=1, how='all')
+
+    if remove_dupliactes:
+        data_df = data.drop_duplicates(subset='inchi').reset_index(drop=True)
 
     return data_df
 
