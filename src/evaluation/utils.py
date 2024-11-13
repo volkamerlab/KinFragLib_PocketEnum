@@ -3,15 +3,22 @@ import json
 from collections import defaultdict
 from copy import deepcopy
 from io import BytesIO
+from math import pi
 from statistics import mean
 
+import numpy as np
 import pandas as pd
 from chembl_webresource_client.new_client import new_client
 from kinfraglib.utils import standardize_mol
+from matplotlib.patches import Circle, RegularPolygon
+from matplotlib.path import Path
+from matplotlib.projections import register_projection
+from matplotlib.projections.polar import PolarAxes
+from matplotlib.spines import Spine
+from matplotlib.transforms import Affine2D
 from PIL import Image as pilImage
-from rdkit.Chem import rdFMCS
 from rdkit import Chem, Geometry
-from rdkit.Chem import AllChem, DataStructs, Draw
+from rdkit.Chem import AllChem, DataStructs, Draw, rdFMCS
 from rdkit.Chem.Draw import rdDepictor, rdMolDraw2D
 from tqdm.auto import tqdm
 
@@ -77,7 +84,7 @@ def get_fragment_ids(mol, subpockets):
     return [fragment_ids.get(sp) for sp in subpockets]
 
 
-def get_fragment_smiles(mol, subpockets, dummy_atoms = False):
+def get_fragment_smiles(mol, subpockets, dummy_atoms=False):
     """
     Extracts smiles of fragments from given ligand
 
@@ -94,7 +101,11 @@ def get_fragment_smiles(mol, subpockets, dummy_atoms = False):
         fragment ids in order of subpockets list
     """
 
-    fragment_smiles = json.loads(mol.GetProp("smiles_fragments_dummy" if dummy_atoms else "smiles_fragments").replace("'", '"'))
+    fragment_smiles = json.loads(
+        mol.GetProp(
+            "smiles_fragments_dummy" if dummy_atoms else "smiles_fragments"
+        ).replace("'", '"')
+    )
 
     return [fragment_smiles.get(sp) for sp in subpockets]
 
@@ -108,7 +119,7 @@ def read_mols(path_to_mols, remove_dupliactes=True):
     path_to_lib : str
         Path to results .sdf file.
     remove_duplicates : bool
-        If true, molecules are deduplicated such the only the one with the best binding affinity is kept. 
+        If true, molecules are deduplicated such the only the one with the best binding affinity is kept.
         Note: duplicates might appear since similar fragments might have different dummy atoms.
 
     Returns
@@ -124,7 +135,7 @@ def read_mols(path_to_mols, remove_dupliactes=True):
             float(mol.GetProp("BIOSOLVEIT.DOCKING_SCORE")),
             get_number_of_fragments(mol),
             Chem.MolToInchi(standardize_mol(mol)),
-        ] 
+        ]
         + get_fragment_smiles(mol, SUBPOCKETS)
         + get_fragment_smiles(mol, SUBPOCKETS, dummy_atoms=True)
         + get_fragment_ids(mol, SUBPOCKETS)
@@ -137,13 +148,13 @@ def read_mols(path_to_mols, remove_dupliactes=True):
         + [sp + "_smiles" for sp in SUBPOCKETS]
         + [sp + "_smiles_dummy" for sp in SUBPOCKETS]
         + SUBPOCKETS,
-    ).sort_values(by=['binding_affinity'])
+    ).sort_values(by=["binding_affinity"])
 
     # drop NA columns (columns where all entries are None/NA)
-    data_df = data_df.dropna(axis=1, how='all')
+    data_df = data_df.dropna(axis=1, how="all")
 
     if remove_dupliactes:
-        data_df = data_df.drop_duplicates(subset='inchi').reset_index(drop=True)
+        data_df = data_df.drop_duplicates(subset="inchi").reset_index(drop=True)
 
     return data_df
 
@@ -158,7 +169,7 @@ def highlight_scaffold(
     Parameters
     ----------
     mol : ROMol
-        molecule 
+        molecule
     patt : ROMol
         pattern to highlight
 
@@ -167,7 +178,7 @@ def highlight_scaffold(
     PNG
         PNG of highlighted molecule
     """
-        
+
     # copy the molecule and core
     mol = Chem.Mol(mol)
 
@@ -245,8 +256,11 @@ def highlight_scaffold(
     png = d2d.GetDrawingText()
     return png
 
+
 # code from adapted from https://greglandrum.github.io/rdkit-blog/posts/2021-08-07-rgd-and-highlighting.html
-def highlight_scaffold_multiple(ms, pattern, legends=None, n_per_row=5, sub_image_size=(250, 200)):
+def highlight_scaffold_multiple(
+    ms, pattern, legends=None, n_per_row=5, sub_image_size=(250, 200)
+):
     """
     Highlights pattern in respective molecules.
 
@@ -437,22 +451,28 @@ def get_chembl_compounds_from_id(chembl_ids: list) -> pd.DataFrame:
 
     # get compounds from client
     compounds_api = new_client.molecule
-    compounds_provider = compounds_api.filter(
-        molecule_chembl_id__in = chembl_ids
-    ).only("molecule_chembl_id", "molecule_structures")
+    compounds_provider = compounds_api.filter(molecule_chembl_id__in=chembl_ids).only(
+        "molecule_chembl_id", "molecule_structures"
+    )
 
-    compounds = [[
-        compound['molecule_chembl_id'],
-        Chem.rdmolfiles.MolFromMolBlock(compound['molecule_structures']['molfile']),
-        compound['molecule_structures']['standard_inchi']
-    ] for compound in tqdm(compounds_provider)]
+    compounds = [
+        [
+            compound["molecule_chembl_id"],
+            Chem.rdmolfiles.MolFromMolBlock(compound["molecule_structures"]["molfile"]),
+            compound["molecule_structures"]["standard_inchi"],
+        ]
+        for compound in tqdm(compounds_provider)
+    ]
 
     return pd.DataFrame(
         compounds,
         columns=["chembl_id", "ROMol", "inchi"],
     )
 
-def highlight_molecules(molecules, mcs, number, label=True, same_orientation=True, **kwargs):
+
+def highlight_molecules(
+    molecules, mcs, number, label=True, same_orientation=True, **kwargs
+):
     """Highlight the MCS in our query molecules
     Function taken and adapted from https://github.com/volkamerlab/teachopencadd/blob/master/teachopencadd/talktorials/T006_compound_maximum_common_substructures/talktorial.ipynb
     """
@@ -472,7 +492,7 @@ def highlight_molecules(molecules, mcs, number, label=True, same_orientation=Tru
     if same_orientation:
         for mol in molecules:
             rdDepictor.GenerateDepictionMatching2DStructure(mol, pattern)
-    
+
     return Draw.MolsToGridImage(
         molecules[:number],
         legends=legends,
@@ -483,19 +503,113 @@ def highlight_molecules(molecules, mcs, number, label=True, same_orientation=Tru
         **kwargs,
     )
 
-def save_chemb_mcs_to_file(most_similar_chembl_compounds, most_similar_pka_compounds, directory):
-    """ Determines the MCS between each ChEMBL compound and the respective given compounds and saves them to png"""
+
+def save_chemb_mcs_to_file(
+    most_similar_chembl_compounds, most_similar_pka_compounds, directory
+):
+    """Determines the MCS between each ChEMBL compound and the respective given compounds and saves them to png"""
 
     for id in most_similar_chembl_compounds.index:
-        mol_chembl = [most_similar_chembl_compounds['ROMol'][id]]
-        chembl_id = most_similar_chembl_compounds['chembl_id'][id]
-        mol_chembl[0].SetProp('_Name', "")
-        mols = mol_chembl + [most_similar_pka_compounds[most_similar_pka_compounds['most_similar_chembl_ligand.chembl_id'] == chembl_id]['ROMol'].iloc[0]]
+        mol_chembl = [most_similar_chembl_compounds["ROMol"][id]]
+        chembl_id = most_similar_chembl_compounds["chembl_id"][id]
+        mol_chembl[0].SetProp("_Name", "")
+        mols = mol_chembl + [
+            most_similar_pka_compounds[
+                most_similar_pka_compounds["most_similar_chembl_ligand.chembl_id"]
+                == chembl_id
+            ]["ROMol"].iloc[0]
+        ]
         mcs1 = rdFMCS.FindMCS(mols, ringMatchesRingOnly=True, completeRingsOnly=True)
         m1 = Chem.MolFromSmarts(mcs1.smartsString)
         for i, mol in enumerate(mols):
             rdDepictor.Compute2DCoords(mol)
             if i:
-                mol.SetProp('_Name', "")  
+                mol.SetProp("_Name", "")
         img = highlight_molecules(mols, mcs1, len(mols), same_orientation=True)
         img.save(directory / f"{chembl_id}.png")
+
+# code is copied and adapted from https://matplotlib.org/stable/gallery/specialty_plots/radar_chart.html
+def radar_factory(num_vars, frame='polygon'):
+    """
+    Returns radar chart with num_vars axes.
+
+    Parameters
+    ----------
+    num_vars : int
+        Number of axis (variables).
+    frame : {'circle', 'polygon'}
+        Shape of frame surrounding Axes.
+    """
+    # calculate evenly-spaced axis angles
+    theta = np.linspace(0, 2 * pi, num_vars, endpoint=False)
+
+    class RadarTransform(PolarAxes.PolarTransform):
+            # Paths with non-unit interpolation steps correspond to gridlines,
+            # in which case we force interpolation (to defeat PolarTransform's
+            # autoconversion to circular arcs).
+        def transform_path_non_affine(self, path):
+            if path._interpolation_steps > 1:
+                path = path.interpolated(num_vars)
+            return Path(self.transform(path.vertices), path.codes)
+
+    class RadarAxes(PolarAxes):
+        name = "radar"
+        PolarTransform = RadarTransform
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            # rotate plot so that the first axis is at the top
+            self.set_theta_zero_location("N")
+
+        def fill(self, *args, closed=True, **kwargs):
+            """Override fill so that line is closed by default"""
+            return super().fill(closed=closed, *args, **kwargs)
+
+        def plot(self, *args, **kwargs):
+            """Override plot so that line is closed by default"""
+            lines = super().plot(*args, **kwargs)
+            for line in lines:
+                self._close_line(line)
+
+        def _close_line(self, line):
+            x, y = line.get_data()
+            if x[0] != x[-1]:
+                x = np.append(x, x[0])
+                y = np.append(y, y[0])
+                line.set_data(x, y)
+
+        def set_varlabels(self, labels):
+            self.set_thetagrids(np.degrees(theta), labels)
+
+        def _gen_axes_patch(self):
+            # The Axes patch must be centered at (0.5, 0.5) and of radius 0.5
+            # in axes coordinates.
+            if frame == "circle":
+                return Circle((0.5, 0.5), 0.5)
+            elif frame == "polygon":
+                return RegularPolygon((0.5, 0.5), num_vars, radius=0.5, edgecolor="k")
+            else:
+                raise ValueError("Unknown value for 'frame': %s" % frame)
+
+        def _gen_axes_spines(self):
+            if frame == "circle":
+                return super()._gen_axes_spines()
+            elif frame == "polygon":
+                # spine_type must be 'left'/'right'/'top'/'bottom'/'circle'.
+                spine = Spine(
+                    axes=self,
+                    spine_type="circle",
+                    path=Path.unit_regular_polygon(num_vars),
+                )
+                # unit_regular_polygon gives a polygon of radius 1 centered at
+                # (0, 0) but we want a polygon of radius 0.5 centered at (0.5,
+                # 0.5) in axes coordinates.
+                spine.set_transform(
+                    Affine2D().scale(0.5).translate(0.5, 0.5) + self.transAxes
+                )
+                return {"polar": spine}
+            else:
+                raise ValueError("Unknown value for 'frame': %s" % frame)
+
+    register_projection(RadarAxes)
+    return theta
