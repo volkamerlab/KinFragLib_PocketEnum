@@ -1,7 +1,6 @@
 import argparse
 import logging
 import sys
-from concurrent.futures import ProcessPoolExecutor
 
 from kinfraglib.utils import standardize_mol
 from rdkit.Chem import PandasTools, rdFingerprintGenerator
@@ -23,8 +22,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p",
         "--post_filtering",
-        action="store_true",
-        help="If flag is set, compounds with estimated bidning affnity > 1,000 nM will be removed from given dataset as a post filtering step.",
+        deafult=1000,
+        help="Estimated binding affinity threshold <p> for postfiltering. If > 0, compounds with estimated binding affinity > <P> nM will be removed from given dataset as a post filtering step. Thus, if set to 0, this post filtering step will NOT be applied.",
     )
     parser.add_argument(
         "-o",
@@ -65,17 +64,14 @@ if __name__ == "__main__":
     path_chembl = args.path_chembl
     path_ligands = args.path_ligands
     path_output = args.output
-    post_filtering = args.post_filtering
+    threshold_post_filtering = args.post_filtering
 
     # read chembl data
     chembl_data = PandasTools.LoadSDF(path_chembl, embedProps=True)
 
     logging.info(f"Loaded {chembl_data.shape[0]} chembl ligands")
 
-    # # standardize
-    # with ProcessPoolExecutor() as executor:
-    #     chemb_stand_mols = executor.map(standardize_mol, chembl_data["ROMol"])
-
+    # standardize
     chembl_data["ROMol_standardized"] = chembl_data["ROMol"].apply(standardize_mol)
 
     logging.info(f"Standardized {chembl_data.shape[0]} chembl ligands")
@@ -99,17 +95,17 @@ if __name__ == "__main__":
 
     logging.info(f"Loaded {data.shape[0]} target compounds")
 
-    if post_filtering:
+    if threshold_post_filtering > 0:
         num_ligands = data.shape[0]
         # post filtering
-        data = data[data["binding_affinity"] <= 1000].reset_index(drop=True)
+        data = data[data["binding_affinity"] <= threshold_post_filtering].reset_index(drop=True)
 
         logging.info(
-            f"Removed {num_ligands - data.shape[0]} with estimated binding affinity > 1,000 nM (post filtering)."
+            f"Removed {num_ligands - data.shape[0]} with estimated binding affinity > {threshold_post_filtering} nM (post filtering)."
         )
 
     logging.info(
-        f"Start calculating the most similar chembl ligands for {data.shape[0]} compounds using {1000000} threads ---->"
+        f"Start calculating the most similar chembl ligands for {data.shape[0]} compounds ---->"
     )
 
     # calculated most similar kinodata ligand

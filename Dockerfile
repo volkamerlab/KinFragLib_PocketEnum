@@ -26,7 +26,3 @@ RUN micromamba install -y -n base -f /tmp/env.yaml && \
 
 RUN git clone https://github.com/volkamerlab/KinFragLib.git && \
         pip install -e KinFragLib
-
-ENV WANDB_API_KEY=69f9afbfc535218e5c6bf7047611cef2ab5d5f40
-ENV WANDB_CACHE_DIR=~/.cache/wandb
-ENV WANDB_DATA_DIR=~/.local/share/wandb
