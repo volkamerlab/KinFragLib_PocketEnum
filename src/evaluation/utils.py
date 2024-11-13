@@ -143,7 +143,7 @@ def read_mols(path_to_mols, remove_dupliactes=True):
     data_df = data_df.dropna(axis=1, how='all')
 
     if remove_dupliactes:
-        data_df = data.drop_duplicates(subset='inchi').reset_index(drop=True)
+        data_df = data_df.drop_duplicates(subset='inchi').reset_index(drop=True)
 
     return data_df
 
