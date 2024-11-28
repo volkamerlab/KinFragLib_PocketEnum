@@ -28,8 +28,15 @@ Download and install `KinFragLib` package:
 ```bash
 git clone https://github.com/volkamerlab/KinFragLib.git
 
-# to install the package
+# now we can continue installing the package
 pip install -e KinFragLib
+```
+
+Install the `KinFragLib_PocketEnum` package itself (required to run the notebooks):
+```bash
+cd ..
+# install package
+pip install -e KinFragLib_PocketEnum
 ```
 
 ### Input
