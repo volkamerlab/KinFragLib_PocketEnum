@@ -1,3 +1,6 @@
+# Pocket-Definition
+This scripts determine the KLIFS binding pocket numbering of the given Kinase. 
+
 ## Required Software:
  - Clustal Omega
  - EMBOSS
@@ -51,5 +54,6 @@ brew install blast
 
 ## Usage
 ```bash
-python3 pocket_definition.py [-h] -f FAMILY -n NAME -p PDB_STRUCTURE
+python3 pocket_definition.py [-h] -f FAMILY -n NAME -p PATH_TO_PDB_FILE
 ```
+`FAMILY` should be replaced by the kinase's family (e.g., `PKA`), and `NAME` by the kinase's name (e.g., `Prkaca`).
