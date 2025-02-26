@@ -1,17 +1,22 @@
 import argparse
 import logging
+import os
 import sys
+import pandas as pd
+
+from pathlib import Path
 
 from kinfraglib.utils import standardize_mol
+from rdkit import Chem
 from rdkit.Chem import PandasTools, rdFingerprintGenerator
 
-from src.evaluation.chembl.utils import most_similar_chembl_ligand
+from src.evaluation.database_comp.utils import most_similar_database_ligand
 from src.evaluation.utils import read_mols
 
 if __name__ == "__main__":
     # parse command line arguments
     parser = argparse.ArgumentParser(
-        prog=sys.argv[0], description="Determines the most similar chembl compounds for each target compounds."
+        prog=sys.argv[0], description="Determines the most similar klifs compounds for each target compounds."
     )
     parser.add_argument(
         "-m",
@@ -22,7 +27,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "-p",
         "--post_filtering",
-        deafult=1000,
+        default=1000,
         help="Estimated binding affinity threshold <p> for postfiltering. If > 0, compounds with estimated binding affinity > <P> nM will be removed from given dataset as a post filtering step. Thus, if set to 0, this post filtering step will NOT be applied.",
     )
     parser.add_argument(
@@ -31,9 +36,23 @@ if __name__ == "__main__":
         help="Filename of output CSV file.",
     )
     parser.add_argument(
-        "-c",
-        "--path_chembl",
-        help="Path to chembl SDF file.",
+        "-i",
+        "--path_klifs_download",
+        help="Path to KLIFS_download",
+    )
+    parser.add_argument(
+        "-g",
+        "--organism",
+        default=["HUMAN"],
+        nargs="*",
+        help="Either HUMAN, MOUSE, or both",
+    )
+    parser.add_argument(
+        "-k",
+        "--kinase",
+        nargs="*",
+        default="*",
+        help="OPTIONAL: specify kinase (s) (needs to correspond to filname in organism directory!)",
     )
     parser.add_argument(
         "-l",
@@ -60,35 +79,64 @@ if __name__ == "__main__":
         datefmt="%Y-%m-%d %H:%M:%S",
     )
 
+    kinases = args.kinase
+    organisms = args.organism
     use_morgan = args.use_morgan
-    path_chembl = args.path_chembl
+    path_klifs = Path(args.path_klifs_download)
     path_ligands = args.path_ligands
     path_output = args.output
     threshold_post_filtering = args.post_filtering
 
-    # read chembl data
-    chembl_data = PandasTools.LoadSDF(path_chembl, embedProps=True)
+    klifs_ligands = []
+    ignore_s = []
 
-    logging.info(f"Loaded {chembl_data.shape[0]} chembl ligands")
+    for organism in organisms:
+        if kinases == '*':
+            kinase_dirs = [Path(f.path) for f in os.scandir(path_klifs / organism) if f.is_dir()]
+        else:
+            kinase_dirs = [(path_klifs / organism / kinase) for kinase in kinases]
+
+        for kinase_dir in kinase_dirs:
+            for pdb in (Path(f.path) for f in os.scandir(kinase_dir) if f.is_dir() and os.path.isfile(Path(f.path) / "ligand.mol2")):
+                # structure with valid ligand
+                ligand = Chem.MolFromMol2File(str(pdb / "ligand.mol2"), removeHs=False)
+                if ligand != None:
+                    klifs_ligands.append({'id': pdb.stem, 'ROMol': ligand, 'kinase': kinase_dir.stem})
+                else: 
+                    ignore_s.append(pdb.stem)
+
+    with open('e_pars.txt', 'w') as f:
+        f.write(str(ignore_s))
+
+    logging.info(f"Loaded {len(klifs_ligands)} KLIFS ligands")
+
+    klifs_data = pd.DataFrame(klifs_ligands, columns=['id','ROMol', 'kinase'])
 
     # standardize
-    chembl_data["ROMol_standardized"] = chembl_data["ROMol"].apply(standardize_mol)
+    klifs_data["ROMol_standardized"] = klifs_data["ROMol"].apply(standardize_mol)
 
-    logging.info(f"Standardized {chembl_data.shape[0]} chembl ligands")
+    # remove ligands with none
+    r = klifs_data[klifs_data["ROMol_standardized"].isna()]['id']
+    with open('e_stand.txt', 'w') as f:
+        f.write(str(r))
+
+    klifs_data = klifs_data[klifs_data["ROMol_standardized"].notna()].reset_index()
+
+    logging.info(f"Standardized {klifs_data.shape[0]} klifs ligands")
 
     # generate fingerprints
     if use_morgan:
         morgan_gen = rdFingerprintGenerator.GetMorganGenerator(radius=2)
-        chembl_data["fingerprint"] = chembl_data["ROMol_standardized"].map(
+        klifs_data["fingerprint"] = klifs_data["ROMol_standardized"].map(
             lambda x: morgan_gen.GetFingerprint(x)
         )
     else:
         rdkit_gen = rdFingerprintGenerator.GetRDKitFPGenerator(maxPath=5)
-        chembl_data["fingerprint"] = chembl_data["ROMol_standardized"].map(
+        klifs_data["fingerprint"] = klifs_data["ROMol_standardized"].map(
             lambda x: rdkit_gen.GetFingerprint(x)
         )
 
-    logging.info(f"Calculated {'Morgan' if use_morgan else 'RDKit'} fingerprints of {chembl_data.shape[0]} chembl ligands")
+    logging.info(f"Calculated {'Morgan' if use_morgan else 'RDKit'} fingerprints of {klifs_data.shape[0]} klifs ligands")
 
     # read results data
     data = read_mols(path_ligands)
@@ -105,14 +153,12 @@ if __name__ == "__main__":
         )
 
     logging.info(
-        f"Start calculating the most similar chembl ligands for {data.shape[0]} compounds ---->"
+        f"Start calculating the most similar klifs ligands for {data.shape[0]} compounds ---->"
     )
 
     # calculated most similar kinodata ligand
-    # with ProcessPoolExecutor() as executor:
-    #     most_similar_chembl_ligands = executor.map(lambda ligand_inchi: most_similar_chembl_ligand(ligand_inchi, chembl_data), data['inchi'])
-    most_similar_chembl_ligands =    [
-            most_similar_chembl_ligand(ligand_inchi, chembl_data)
+    most_similar_klifs_ligands =    [
+            most_similar_database_ligand(ligand_inchi, klifs_data, ['id', 'kinase'])
                 for ligand_inchi in data.inchi
         ]
 
@@ -121,11 +167,14 @@ if __name__ == "__main__":
     )
 
     # add id and similarity of most similar chembl ligands
-    data["most_similar_chembl_ligand.chembl_id"] = [
-        res[0] for res in most_similar_chembl_ligands
+    data["most_similar_klifs_ligand.id"] = [
+        res[0][0] for res in most_similar_klifs_ligands
     ]
-    data["most_similar_chembl_ligand.similarity"] = [
-        res[1] for res in most_similar_chembl_ligands
+    data["most_similar_klifs_ligand.kinase"] = [
+        res[0][1] for res in most_similar_klifs_ligands
+    ]
+    data["most_similar_klifs_ligand.similarity"] = [
+        res[1] for res in most_similar_klifs_ligands
     ]
 
     # save to csv
