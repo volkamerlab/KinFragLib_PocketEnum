@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     # Access fragment library
     fragment_library_original = utils.read_fragment_library(
-        config.path_kinfraglib / "fragment_library"
+        config.path_kinfraglib
     )
 
     logging.debug(

@@ -87,7 +87,7 @@ class Config:
         with open(config_file, "rt") as json_file:
             definitions = json.load(json_file)
 
-        self.pdb_code: str = definitions["pdbCode"]
+        self.pdb_code: str = definitions["Name"]
         self.core_subpocket: str = definitions["CoreSubpocket"]
         self.subpockets: list = definitions["Subpockets"]
         self.fragments_per_iteration: int = definitions["NumberFragmentsPerIterations"]
@@ -113,7 +113,7 @@ class Config:
                 definitions.get("HydeDisplacementCutoff") or 2.5
             )
 
-        self.num_threads = definitions.get("NumberThreads")
+        self.num_threads = definitions.get("NumberThreads") or 1
 
         self.filters = [
             Filter(name, values) for name, values in definitions["Filters"].items()

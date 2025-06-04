@@ -1,10 +1,11 @@
 {
-    "pdbCode": "TODO",
+    "Name": "TODO",
     "CoreSubpocket": "TODO",
     "Subpockets": ["TODO", "..."],
-    "KinFragLib": "KinFragLib/data",
-    "Config": "config",
+    "KinFragLib": "TODO",
+    "Config": "TODO",
     "FlexX": "TODO",
+    "Hyde": "TODO",
     "NumberFragmentsPerIterations": 100,
     "NumberPosesPerFragment": 5,
     "Filters": {
@@ -16,8 +17,8 @@
     },
     "UseClusterBasedPoseFiltering": true,
     "DistanceThresholdClustering": 1.5,
-    "NumberThreads": 256,
+    "NumberThreads": 1,
+    "UseClusterBasedFragmentFiltering": true,
     "UseHyde": true,
-    "Hyde": "TODO",
     "HydeDisplacementCutoff": 2.5
 }
