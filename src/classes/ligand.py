@@ -246,7 +246,7 @@ class Ligand:
                         a.GetProp("subpocket"),
                     )
                     for i, a in enumerate(fragment.GetAtoms())
-                    if a.GetSymbol() == "*"
+                    if a.GetSymbol() in ["*", "R"] # account for versioning naming changings 
                 ]
 
     def recombine(self, fragment_id, subpocket, fragment_library):
@@ -274,7 +274,7 @@ class Ligand:
                 a.GetProp("subpocket"),
             )
             for i, a in enumerate(fragment.GetAtoms())
-            if a.GetSymbol() == "*"
+            if a.GetSymbol() in ["*", "R"] # account for versioning naming changings 
         ]
         counter_recombinations = 0
         counter_unambiguous_bonds = 0

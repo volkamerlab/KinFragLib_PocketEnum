@@ -80,7 +80,7 @@ def core_docking_task(config: Config, core_fragment):
         ):  # safe every resulting pose within the fragment
             displacement = calc_distance_matrix([conformer_hyde, conformer_docking])[0]
             if displacement > config.hyde_displacement_cutoff:
-                logging.warning(
+                logging.debug(
                     f"""VIOLATION: RMSD between HYDE and docking pose {core_fragment.fragment_ids} {i}: 
                                 {displacement}"""
                 )

@@ -119,7 +119,7 @@ def template_docking_task(
                 if rmsd > config.hyde_displacement_cutoff:
                     violations.append((conformer_docking, conformer_hyde))
                     sum_hyde_displacement_violations += rmsd
-                    logging.warning(
+                    logging.debug(
                         f"VIOLATION: RMSD between HYDE and docking pose {fragment.fragment_ids} {i}: {rmsd}"
                     )
                 else:
