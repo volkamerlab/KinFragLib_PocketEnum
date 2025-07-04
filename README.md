@@ -10,6 +10,8 @@ BioSolveIT's [SeeSAR](https://www.biosolveit.de/SeeSAR) (3D desktop modeling pla
 * **HYDE** - for scoring and optimization 
 The SeeSAR command-line tools should be be preferable placed within the root directory of the project.
 
+**Note:** since we employ the FlexX docking and HYDE scoring tool, you need a valid [SeeSAR license](https://www.biosolveit.de/license/) to succesfully run this pipeline.
+
 ### Installation & Dependencies
 Create a conda environment containing all required packages:
 ```bash
