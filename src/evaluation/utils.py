@@ -3,6 +3,7 @@ import json
 from collections import defaultdict
 from copy import deepcopy
 from io import BytesIO
+import os
 from math import pi
 from statistics import mean
 
@@ -45,6 +46,15 @@ def get_binding_affinity(mol):
         + float(mol.GetProp("BIOSOLVEIT.HYDE_ESTIMATED_AFFINITY_LOWER_BOUNDARY [nM]"))
     ) / 2
 
+def pplistdir(path, pre = ""):
+    print(pre + " - " + str(path).split("/")[-1])
+    if os.path.isfile(path):
+        return
+    
+    for file in sorted(os.listdir(path)):
+        pplistdir(path / file, pre + " |\t")
+
+    return
 
 def get_number_of_fragments(mol):
     """

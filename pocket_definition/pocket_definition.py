@@ -8,7 +8,7 @@ from io import StringIO
 
 from Bio import SeqIO
 from Bio.Blast import NCBIXML
-from Bio.Blast.Applications import NcbiblastpCommandline
+#from Bio.Blast.Applications import NcbiblastpCommandline
 from Bio.PDB import PDBParser
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -178,10 +178,18 @@ if __name__ == "__main__":
         SeqIO.write(seq2, "seq2.fasta", "fasta")
 
         # run BLAST and parse the output as XML
-        output = NcbiblastpCommandline(
-            query="seq1.fasta", subject="seq2.fasta", outfmt=5
-        )()[0]
-        blast_result_record = NCBIXML.read(StringIO(output))
+        # output = NcbiblastpCommandline(
+        #     query="seq1.fasta", subject="seq2.fasta", outfmt=5
+        # )()[0]
+        output = subprocess.run(
+            ["blastp", "-query", "seq1.fasta", "-subject", "seq2.fasta", "-outfmt", "5"],
+            capture_output=True, 
+        )
+        if output.returncode != 0:
+            logging.error("Error while running blastp: " + output.stderr.decode() )
+            exit(1)
+
+        blast_result_record = NCBIXML.read(StringIO(output.stdout.decode() ))
 
         os.remove("seq1.fasta")
         os.remove("seq2.fasta")
