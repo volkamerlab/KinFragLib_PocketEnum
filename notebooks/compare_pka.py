@@ -158,7 +158,7 @@ def get_data_for_ids(pdb_ids):
         ligands = {k: l for k, l in ligands.items() if l['@type'] == 'non-polymer'}
         
         ligand_id, properties = max(
-            ((k, l) for k, l in ligands.items() if l['@type'] == 'non-polymer'),
+            ((k, l) for k, l in ligands.items() if l['@type'] == 'non-polymer' and l['@molecularWeight'] != None),
             key=lambda kv: kv[1].get("@molecularWeight", 0), default=[None, None]
         )
 
@@ -172,7 +172,12 @@ def get_data_for_ids(pdb_ids):
 
 def generate_and_save(ligands, data, path):
     PandasTools.AddMoleculeColumnToFrame(ligands,'smiles')
+    ligands = ligands.dropna(ignore_index=True, subset="ROMol")
     ligands["ROMol_standardized"] = ligands["ROMol"].apply(standardize_mol)
+    rdkit_gen = rdFingerprintGenerator.GetRDKitFPGenerator(maxPath=5)
+    ligands["fingerprint"] = ligands["ROMol_standardized"].map(
+            lambda x: rdkit_gen.GetFingerprint(x)
+        )
     x = [most_similar_chembl_ligand(ligand_inchi, ligands)
                 for ligand_inchi in data.inchi]
     data = data.copy()
@@ -208,7 +213,7 @@ query_by_title = rcsb.FieldQuery(
 
 # === load data ===
 
-data = read_mols("../results_5n1f_25_02/5n1f/results.sdf")
+data = read_mols("../results/5n1f/results.sdf")
 
 # post filtering
 data = data[data["binding_affinity"] <= 1000].reset_index(drop=True)
