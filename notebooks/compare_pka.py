@@ -138,11 +138,16 @@ def most_similar_chembl_ligand(ligand_inchi, chembl):
 
         # get ligand with maximal similarity
         chembl_most_similar_ix = chembl.similarity.idxmax()
+        chembl_least_similar_ix = chembl.similarity.idxmin()
+        chembl_sim_mean = chembl.similarity.mean()
 
         return [
             chembl.loc[chembl_most_similar_ix]['@chemicalID'],
             round(chembl.loc[chembl_most_similar_ix].similarity, 2),
-        ]
+        ], [
+            chembl.loc[chembl_least_similar_ix]['@chemicalID'],
+            round(chembl.loc[chembl_least_similar_ix].similarity, 2),
+        ], chembl_sim_mean
 
     except Exception as e:
 
@@ -181,11 +186,20 @@ def generate_and_save(ligands, data, path):
     x = [most_similar_chembl_ligand(ligand_inchi, ligands)
                 for ligand_inchi in data.inchi]
     data = data.copy()
-    data["most_similar_chembl_ligand.ligand_id"] = [
-        res[0] for res in x
+    data["most_similar.ligand_id"] = [
+        res[0][0] for res in x
     ]
-    data["most_similar_chembl_ligand.similarity"] = [
-        res[1] for res in x
+    data["most_similar.similarity"] = [
+        res[0][1] for res in x
+    ]
+    data["least_similar.ligand_id"] = [
+        res[1][0] for res in x
+    ]
+    data["least_similar.similarity"] = [
+        res[1][1] for res in x
+    ]
+    data["mean_similarity"] = [
+        res[2] for res in x
     ]
     data.to_csv(path)
 
