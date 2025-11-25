@@ -70,7 +70,7 @@ def get_number_of_fragments(mol):
     int
         number of fragments
     """
-    return len(json.loads(mol.GetProp("fragment_ids").replace("'", '"')))
+    return len(json.loads(mol.GetProp("fragment_ids").replace("'", '"'))) if mol.HasProp("fragment_ids") else None
 
 
 def get_fragment_ids(mol, subpockets):
@@ -90,8 +90,8 @@ def get_fragment_ids(mol, subpockets):
         fragment ids in order of subpockets list
     """
 
-    fragment_ids = json.loads(mol.GetProp("fragment_ids").replace("'", '"'))
-    return [fragment_ids.get(sp) for sp in subpockets]
+    fragment_ids = json.loads(mol.GetProp("fragment_ids").replace("'", '"')) if mol.HasProp("fragment_ids") else None
+    return [fragment_ids.get(sp) if fragment_ids else None for sp in subpockets]
 
 
 def get_fragment_smiles(mol, subpockets, dummy_atoms=False):
@@ -114,13 +114,12 @@ def get_fragment_smiles(mol, subpockets, dummy_atoms=False):
     fragment_smiles = json.loads(
         mol.GetProp(
             "smiles_fragments_dummy" if dummy_atoms else "smiles_fragments"
-        ).replace("'", '"')
-    )
+        ).replace("'", '"'))  if mol.HasProp("smiles_fragments_dummy") else None
 
-    return [fragment_smiles.get(sp) for sp in subpockets]
+    return [fragment_smiles.get(sp) if fragment_smiles else None for sp in subpockets]
 
 
-def read_mols(path_to_mols, remove_dupliactes=True):
+def read_mols(path_to_mols, remove_dupliactes=True, docking_score=True):
     """
     Read ligands from result file.
 
@@ -142,7 +141,7 @@ def read_mols(path_to_mols, remove_dupliactes=True):
         [
             mol,
             get_binding_affinity(mol),
-            float(mol.GetProp("BIOSOLVEIT.DOCKING_SCORE")),
+            float(mol.GetProp("BIOSOLVEIT.DOCKING_SCORE")) if docking_score else None,
             get_number_of_fragments(mol),
             Chem.MolToInchi(standardize_mol(mol)),
         ]
