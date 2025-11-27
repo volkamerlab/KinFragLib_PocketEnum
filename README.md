@@ -1,4 +1,7 @@
 # KinFragLib_PocketEnum
+
+![Subpocket-based docking workflow](./docs/img/approach.png)
+
 This pipeline automatically places and expands fragments in a binding pocket of a given kinase structure – based on a user-defined subpocket path – to generate numerous possible kinase inhibitors. It allows the user to customize this process by e.g. setting the starting subpocket and the subpocket path for fragment growing and defining thresholds.
 
 **Note:** This repository is currently a pre-release.
