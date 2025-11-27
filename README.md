@@ -4,7 +4,6 @@
 
 This pipeline automatically places and expands fragments in a binding pocket of a given kinase structure – based on a user-defined subpocket path – to generate numerous possible kinase inhibitors. It allows the user to customize this process by e.g. setting the starting subpocket and the subpocket path for fragment growing and defining thresholds.
 
-**Note:** This repository is currently a pre-release.
 ## Usage
 
 ### Requirements
@@ -45,13 +44,13 @@ pip install -e KinFragLib_PocketEnum
 ```
 
 ### Input
-* `.flexx` and `.hydescorer` binding pocket, and pharmacophore (i.e., subpocket) definition files need to be prepared and downloaded for evey subpocket using the [SeeSAR GUI](https://www.biosolveit.de/SeeSAR).
-These files All these files need to be placed in one directoy that is named **only** by the pdb ID  of the structure (e.g., `5n1f`) and should be named according to the following scheme: `<subpocket>.flexx` (`<subpocket>.hydescorer`), `<subpocket>` needs to be replaced with the subpocket of this file. E.g. the FlexX file for the AP subpocket needs to be stored as `AP.flexx`. By default, the program will search for this directory within the `config` directory, however, this can be changed wihtin the `settings.json` file. For an example see the [`config/5n1f`](config/5n1f) directory.
-* Create a JSON configuration file, such that the structure pdb id, the core subpocket, path of subpockets for fragment growing, the path to the fragment library, the path to the FlexX and HYDE executeable, and the path to the folder conatining folder (named with the PDB ID) with the `.flexx` and `.hydescorer` files is defined. A template file is given in [`config/templates/settings.json`](config/templates/settings.json), where all **required** arguments are labeled with a `TODO` (`TODO` needs to be replaced by the argument) and all *optional* arguments are set by their deafult value. [`config/5n1f/settings.json`](config/5n1f/settings.json) provides an example configuration file.
+* `.flexx` and `.hydescorer` binding pocket, and pharmacophore (i.e., subpocket) definition files need to be prepared and downloaded for every subpocket using the [SeeSAR GUI](https://www.biosolveit.de/SeeSAR).
+All these files need to be placed in one directory that is named **only** by the pdb ID  of the structure (e.g., `5n1f`) and should be named according to the following scheme: `<subpocket>.flexx` (`<subpocket>.hydescorer`), `<subpocket>` needs to be replaced with the subpocket of this file. E.g. the FlexX file for the AP subpocket needs to be stored as `AP.flexx`. By default, the program will search for this directory within the `config` directory, however, this can be changed within the `settings.json` file. For an example see the [`config/5n1f`](config/5n1f) directory.
+* Create a JSON configuration file, such that the structure pdb id, the core subpocket, path of subpockets for fragment growing, the path to the fragment library, the path to the FlexX and HYDE executable, and the path to the folder containing folder (named with the PDB ID) with the `.flexx` and `.hydescorer` files is defined. A template file is given in [`config/templates/settings.json`](config/templates/settings.json), where all **required** arguments are labeled with a `TODO` (`TODO` needs to be replaced by the argument) and all *optional* arguments are set by their default value. [`config/5n1f/settings.json`](config/5n1f/settings.json) provides an example configuration file.
 
-**Note:** We provide a script ([`pocket_definition/pocket_definition.py`](pocket_definition)) that determines the 85 KLIFS binding pocket and subpocket-specific anchor residues which might be handy if the kinase structure of interest is not listed in [KLIFS](https://klifs.net/).
+**Note:** We provide a script ([`pocket_definition/pocket_definition.py`](pocket_definition)) that determines the 85 KLIFS binding pocket and subpocket-specific anchor residues, which might be handy if the kinase structure of interest is not listed in [KLIFS](https://klifs.net/).
 
-### Run subpocket based docking programm
+### Run subpocket-based docking program
 ```bash
 python3 src/fragment_docking.py -s <JSON_settings_file> -r <path_to_results_folder> 
 ```
@@ -63,14 +62,14 @@ python3 src/fragment_docking.py -h
 ```
 
 **Note:** The process can be tracked on https://wandb.ai/home:
-    To enable this, just run the subpocket based docking porgram (as instructed) and follow the instruction (either select (1) to create an account or (2) to login if an account exists already)
-If this is not wanted choose the option (3)
+    To enable this, just run the subpocket-based docking program (as instructed) and follow the instructions (either select (1) to create an account or (2) to log in if an account exists already)
+If this is not wanted, choose option (3)
 
 ### Output
 All output files are located in a folder named with the PDB ID followed by the submitting date within the specified result directory (`<path_to_results_folder> / <PDB ID>_<submit_date>`, e.g. `results/5n1f_2024_01_31`):
 * `program_statistics.json`: contains program statistics, such as the runtime, or quantities of the ligand generation process
-* `results.sdf`: comprising the generated ligands (for each ligand only the docking conformation of the highest scoring pose is given)
+* `results.sdf`: comprising the generated ligands (for each ligand, only the docking conformation of the highest scoring pose is given)
 * `SPx.sdf`: comprising *all* docking conformations of the ligands that have been docking in the `x`-th iteration
 
-## Citation.
+## Citation
 Buchthal K, Kramer PL, Hubach D, Bach G, Wagner N, Krieger J, et al. Novel Kinase Ligand Generation Using Subpocket-Based Docking. *ChemRxiv.* **2025**; [doi:10.26434/chemrxiv-2025-f9ctg](https://chemrxiv.org/engage/chemrxiv/article-details/68cffe6af4163037709b289f). **This content is a preprint and has not been peer-reviewed.**
