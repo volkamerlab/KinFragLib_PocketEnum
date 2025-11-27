@@ -70,4 +70,4 @@ All output files are located in a folder named with the PDB ID followed by the s
 * `SPx.sdf`: comprising *all* docking conformations of the ligands that have been docking in the `x`-th iteration
 
 ## Citation.
-Buchthal K, Kramer PL, Hubach D, Bach G, Wagner N, Krieger J, et al. Novel Kinase Ligand Generation Using Subpocket-Based Docking. *ChemRxiv.* **2025**; [doi:10.26434/chemrxiv-2025-f9ctg](https://chemrxiv.org/engage/chemrxiv/article-details/68cffe6af4163037709b289f)  This content is a preprint and has not been peer-reviewed.
+Buchthal K, Kramer PL, Hubach D, Bach G, Wagner N, Krieger J, et al. Novel Kinase Ligand Generation Using Subpocket-Based Docking. *ChemRxiv.* **2025**; [doi:10.26434/chemrxiv-2025-f9ctg](https://chemrxiv.org/engage/chemrxiv/article-details/68cffe6af4163037709b289f). **This content is a preprint and has not been peer-reviewed.**
