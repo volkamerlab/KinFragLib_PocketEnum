@@ -18,6 +18,7 @@ from matplotlib.projections.polar import PolarAxes
 from matplotlib.spines import Spine
 from matplotlib.transforms import Affine2D
 from PIL import Image as pilImage
+import requests
 from rdkit import Chem, Geometry
 from rdkit.Chem import AllChem, DataStructs, Draw, rdFMCS
 from rdkit.Chem.Draw import rdDepictor, rdMolDraw2D
@@ -477,6 +478,67 @@ def get_chembl_compounds_from_id(chembl_ids: list) -> pd.DataFrame:
         compounds,
         columns=["chembl_id", "ROMol", "inchi"],
     )
+    
+
+def _fetch_ligand_expo_info(ligand_id):
+  url = f"https://data.rcsb.org/rest/v1/core/chemcomp/{ligand_id}"
+  r = requests.get(url)
+  data = r.json()
+  chem = data.get("chem_comp", {})
+  desc = data.get("rcsb_chem_comp_descriptor", {})
+  return {
+      "@structureId": ligand_id,
+      "@chemicalID": chem.get("id"),
+      "@type": chem.get("type"),
+      "@molecularWeight": chem.get("formula_weight"),
+      "chemicalName": chem.get("name"),
+      "formula": chem.get("formula"),
+      "InChI": desc.get("InChI"),
+      "InChIKey": desc.get("InChIKey"),
+      "smiles": desc.get("smiles"),
+  }
+    
+def get_pdb_compounds_from_id(ligand_ids: list) -> pd.DataFrame:
+    """
+    Retrives ChEMBL compounds from given IDs
+
+    Parameters
+    ----------
+    chembl_ids : list()
+        List of ChEMBL IDs
+
+    Returns
+    -------
+    DatFrame
+        ChEMBL compounds (ID, smiles, ROMol)
+    """
+
+    # TODO
+    # # get compounds from client
+    # compounds_api = new_client.molecule
+    # compounds_provider = compounds_api.filter(molecule_chembl_id__in=chembl_ids).only(
+    #     "molecule_chembl_id", "molecule_structures"
+    # )
+
+    compounds = [
+        _fetch_ligand_expo_info(ligand_id)
+        for ligand_id in tqdm(ligand_ids)
+    ]
+    
+    compounds = [[
+        compound["@structureId"],
+        Chem.MolFromSmiles(compound['smiles']),
+        compound['InChI']
+    ] for compound in [
+        _fetch_ligand_expo_info(ligand_id)
+        for ligand_id in tqdm(ligand_ids)
+    ]]
+
+    return pd.DataFrame(
+        compounds,
+        # TODO change name
+        columns=["chembl_id", "ROMol", "inchi"],
+    )
 
 
 def highlight_molecules(
@@ -518,6 +580,8 @@ def save_chemb_mcs_to_file(
 ):
     """Determines the MCS between each ChEMBL compound and the respective given compounds and saves them to png"""
 
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
     for id in most_similar_chembl_compounds.index:
         mol_chembl = [most_similar_chembl_compounds["ROMol"][id]]
         chembl_id = most_similar_chembl_compounds["chembl_id"][id]
@@ -525,6 +589,33 @@ def save_chemb_mcs_to_file(
         mols = mol_chembl + [
             most_similar_pka_compounds[
                 most_similar_pka_compounds["most_similar_chembl_ligand.chembl_id"]
+                == chembl_id
+            ]["ROMol"].iloc[0]
+        ]
+        mcs1 = rdFMCS.FindMCS(mols, ringMatchesRingOnly=True, completeRingsOnly=True)
+        m1 = Chem.MolFromSmarts(mcs1.smartsString)
+        for i, mol in enumerate(mols):
+            rdDepictor.Compute2DCoords(mol)
+            if i:
+                mol.SetProp("_Name", "")
+        img = highlight_molecules(mols, mcs1, len(mols), same_orientation=True)
+        img.save(directory / f"{chembl_id}.png")
+        
+# TODO refractor
+def save_pdb_mcs_to_file(
+    most_similar_chembl_compounds, most_similar_pka_compounds, directory
+):
+    """Determines the MCS between each ChEMBL compound and the respective given compounds and saves them to png"""
+
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+    for id in most_similar_chembl_compounds.index:
+        mol_chembl = [most_similar_chembl_compounds["ROMol"][id]]
+        chembl_id = most_similar_chembl_compounds["chembl_id"][id]
+        mol_chembl[0].SetProp("_Name", "")
+        mols = mol_chembl + [
+            most_similar_pka_compounds[
+                most_similar_pka_compounds["most_similar.ligand_id"]
                 == chembl_id
             ]["ROMol"].iloc[0]
         ]
