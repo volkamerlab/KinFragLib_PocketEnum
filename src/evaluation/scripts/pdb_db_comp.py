@@ -9,22 +9,25 @@ import requests_cache
 import biotite.database.rcsb as rcsb
 
 
-# Disable some unneeded warnings
-logger = logging.getLogger("opencadd")
-logger.setLevel(logging.ERROR)
-warnings.filterwarnings("ignore")
+# Select which subsets of cocrystallized ligands should be analysed 
+HAMSTER_PKA = True # hamster PKA 
+PKA = True # PKA ligands (from arbitrary organism)
+KINASES = True # all kinase ligands
 
-# Cache requests -- this will speed up repeated queries to PDB
-requests_cache.install_cache("rcsb_pdb", backend="memory")
-
-
-HAMSTER_PKA = True
-PKA = True
-KINASES = False
-SYNETHSIZED_ONLY = True
+# If set to true, the analysis is performed only on the ligands, 
+# selected for synthesis 
+# (on both, the generated and the modified versions of the ligands)
+SYNETHSIZED_ONLY = False
 
 
 if __name__ == "__main__":
+    # Disable some unneeded warnings
+    logger = logging.getLogger("opencadd")
+    logger.setLevel(logging.ERROR)
+    warnings.filterwarnings("ignore")
+
+    # Cache requests -- this will speed up repeated queries to PDB
+    requests_cache.install_cache("rcsb_pdb", backend="memory")
 
     uniprot_id = "P25321"  # hamster PKA
     experimental_method = "X-RAY DIFFRACTION"
@@ -61,8 +64,8 @@ if __name__ == "__main__":
     # === load data ===
 
     if SYNETHSIZED_ONLY:
-        data_proposed = read_mols("proposed_ligands_hyde.sdf", docking_score=False)
-        data_modified = read_mols("adapted_mols.sdf", docking_score=False)
+        data_proposed = read_mols("../results_5n1f_25_02/5n1f/proposed_ligands_hyde.sdf", docking_score=False)
+        data_modified = read_mols("../results_5n1f_25_02/5n1f/adapted_mols.sdf", docking_score=False)
         data_proposed["source"] = "proposed"
         data_modified["source"] = "modified"
         data = pd.concat([data_proposed, data_modified], ignore_index=True)

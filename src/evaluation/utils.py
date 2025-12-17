@@ -500,25 +500,18 @@ def _fetch_ligand_expo_info(ligand_id):
     
 def get_pdb_compounds_from_id(ligand_ids: list) -> pd.DataFrame:
     """
-    Retrives ChEMBL compounds from given IDs
+    Retrives compounds from given IDs (pdb)
 
     Parameters
     ----------
     chembl_ids : list()
-        List of ChEMBL IDs
+        List of PDB ligand IDs
 
     Returns
     -------
     DatFrame
-        ChEMBL compounds (ID, smiles, ROMol)
+        PDB compounds (ID, smiles, ROMol)
     """
-
-    # TODO
-    # # get compounds from client
-    # compounds_api = new_client.molecule
-    # compounds_provider = compounds_api.filter(molecule_chembl_id__in=chembl_ids).only(
-    #     "molecule_chembl_id", "molecule_structures"
-    # )
 
     compounds = [
         _fetch_ligand_expo_info(ligand_id)
@@ -536,8 +529,7 @@ def get_pdb_compounds_from_id(ligand_ids: list) -> pd.DataFrame:
 
     return pd.DataFrame(
         compounds,
-        # TODO change name
-        columns=["chembl_id", "ROMol", "inchi"],
+        columns=["ligand_id", "ROMol", "inchi"],
     )
 
 
@@ -611,7 +603,7 @@ def save_pdb_mcs_to_file(
         os.makedirs(directory)
     for id in most_similar_chembl_compounds.index:
         mol_chembl = [most_similar_chembl_compounds["ROMol"][id]]
-        chembl_id = most_similar_chembl_compounds["chembl_id"][id]
+        chembl_id = most_similar_chembl_compounds["ligand_id"][id]
         mol_chembl[0].SetProp("_Name", "")
         mols = mol_chembl + [
             most_similar_pka_compounds[

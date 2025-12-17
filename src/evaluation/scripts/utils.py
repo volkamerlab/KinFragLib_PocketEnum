@@ -102,9 +102,23 @@ def _fetch_ligand_expo_info(ligand_id):
 
 def get_ligands(pdb_id):
     """
+    Returns all ligands from a given PDB structure.
+    
+    Adapted from Talktorial T008 (https://projects.volkamerlab.org/teachopencadd/talktorials/T008_query_pdb.html)
+    
     RCSB has not provided a new endpoint for ligand information yet. As a
     workaround we are obtaining extra information from ligand-expo.rcsb.org,
     using HTML parsing. Check Talktorial T011 for more info on this technique!
+    
+    Parameters
+    ----------
+    pdb_id : str
+        PDB id of structures from which the ligands should be determined
+
+    Returns
+    -------
+    Dataframe
+        Redrived ligands
     """
     pdb_info = _fetch_pdb_nonpolymer_info(pdb_id)
     ligand_expo_ids = [
@@ -223,10 +237,10 @@ def generate_and_save(target_ligands, query_ligands, path):
     ----------
     query_ligands : Dataframe
         Query ligands
-    target_lignads : Dataframe
+    target_ligands : Dataframe
         Target ligands
     path : str
-        CSV file wher results are saved
+        CSV file where results are saved
 
     """
 
