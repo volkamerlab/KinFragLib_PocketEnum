@@ -64,7 +64,7 @@ if __name__ == "__main__":
     # === load data ===
 
     if SYNETHSIZED_ONLY:
-        data_proposed = read_mols("../results_5n1f_25_02/5n1f/proposed_ligands_hyde.sdf", docking_score=False)
+        data_proposed = read_mols("../results_5n1f_25_02/5n1f/proposed_ligands.sdf", docking_score=False)
         data_modified = read_mols("../results_5n1f_25_02/5n1f/adapted_mols.sdf", docking_score=False)
         data_proposed["source"] = "proposed"
         data_modified["source"] = "modified"
