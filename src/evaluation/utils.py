@@ -18,6 +18,7 @@ from matplotlib.projections.polar import PolarAxes
 from matplotlib.spines import Spine
 from matplotlib.transforms import Affine2D
 from PIL import Image as pilImage
+import requests
 from rdkit import Chem, Geometry
 from rdkit.Chem import AllChem, DataStructs, Draw, rdFMCS
 from rdkit.Chem.Draw import rdDepictor, rdMolDraw2D
@@ -70,7 +71,7 @@ def get_number_of_fragments(mol):
     int
         number of fragments
     """
-    return len(json.loads(mol.GetProp("fragment_ids").replace("'", '"')))
+    return len(json.loads(mol.GetProp("fragment_ids").replace("'", '"'))) if mol.HasProp("fragment_ids") else None
 
 
 def get_fragment_ids(mol, subpockets):
@@ -90,8 +91,8 @@ def get_fragment_ids(mol, subpockets):
         fragment ids in order of subpockets list
     """
 
-    fragment_ids = json.loads(mol.GetProp("fragment_ids").replace("'", '"'))
-    return [fragment_ids.get(sp) for sp in subpockets]
+    fragment_ids = json.loads(mol.GetProp("fragment_ids").replace("'", '"')) if mol.HasProp("fragment_ids") else None
+    return [fragment_ids.get(sp) if fragment_ids else None for sp in subpockets]
 
 
 def get_fragment_smiles(mol, subpockets, dummy_atoms=False):
@@ -114,13 +115,12 @@ def get_fragment_smiles(mol, subpockets, dummy_atoms=False):
     fragment_smiles = json.loads(
         mol.GetProp(
             "smiles_fragments_dummy" if dummy_atoms else "smiles_fragments"
-        ).replace("'", '"')
-    )
+        ).replace("'", '"'))  if mol.HasProp("smiles_fragments_dummy") else None
 
-    return [fragment_smiles.get(sp) for sp in subpockets]
+    return [fragment_smiles.get(sp) if fragment_smiles else None for sp in subpockets]
 
 
-def read_mols(path_to_mols, remove_dupliactes=True):
+def read_mols(path_to_mols, remove_dupliactes=True, docking_score=True):
     """
     Read ligands from result file.
 
@@ -142,7 +142,7 @@ def read_mols(path_to_mols, remove_dupliactes=True):
         [
             mol,
             get_binding_affinity(mol),
-            float(mol.GetProp("BIOSOLVEIT.DOCKING_SCORE")),
+            float(mol.GetProp("BIOSOLVEIT.DOCKING_SCORE")) if docking_score else None,
             get_number_of_fragments(mol),
             Chem.MolToInchi(standardize_mol(mol)),
         ]
@@ -478,6 +478,59 @@ def get_chembl_compounds_from_id(chembl_ids: list) -> pd.DataFrame:
         compounds,
         columns=["chembl_id", "ROMol", "inchi"],
     )
+    
+
+def _fetch_ligand_expo_info(ligand_id):
+  url = f"https://data.rcsb.org/rest/v1/core/chemcomp/{ligand_id}"
+  r = requests.get(url)
+  data = r.json()
+  chem = data.get("chem_comp", {})
+  desc = data.get("rcsb_chem_comp_descriptor", {})
+  return {
+      "@structureId": ligand_id,
+      "@chemicalID": chem.get("id"),
+      "@type": chem.get("type"),
+      "@molecularWeight": chem.get("formula_weight"),
+      "chemicalName": chem.get("name"),
+      "formula": chem.get("formula"),
+      "InChI": desc.get("InChI"),
+      "InChIKey": desc.get("InChIKey"),
+      "smiles": desc.get("smiles"),
+  }
+    
+def get_pdb_compounds_from_id(ligand_ids: list) -> pd.DataFrame:
+    """
+    Retrives compounds from given IDs (pdb)
+
+    Parameters
+    ----------
+    chembl_ids : list()
+        List of PDB ligand IDs
+
+    Returns
+    -------
+    DatFrame
+        PDB compounds (ID, smiles, ROMol)
+    """
+
+    compounds = [
+        _fetch_ligand_expo_info(ligand_id)
+        for ligand_id in tqdm(ligand_ids)
+    ]
+    
+    compounds = [[
+        compound["@structureId"],
+        Chem.MolFromSmiles(compound['smiles']),
+        compound['InChI']
+    ] for compound in [
+        _fetch_ligand_expo_info(ligand_id)
+        for ligand_id in tqdm(ligand_ids)
+    ]]
+
+    return pd.DataFrame(
+        compounds,
+        columns=["ligand_id", "ROMol", "inchi"],
+    )
 
 
 def highlight_molecules(
@@ -519,6 +572,8 @@ def save_chemb_mcs_to_file(
 ):
     """Determines the MCS between each ChEMBL compound and the respective given compounds and saves them to png"""
 
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
     for id in most_similar_chembl_compounds.index:
         mol_chembl = [most_similar_chembl_compounds["ROMol"][id]]
         chembl_id = most_similar_chembl_compounds["chembl_id"][id]
@@ -526,6 +581,33 @@ def save_chemb_mcs_to_file(
         mols = mol_chembl + [
             most_similar_pka_compounds[
                 most_similar_pka_compounds["most_similar_chembl_ligand.chembl_id"]
+                == chembl_id
+            ]["ROMol"].iloc[0]
+        ]
+        mcs1 = rdFMCS.FindMCS(mols, ringMatchesRingOnly=True, completeRingsOnly=True)
+        m1 = Chem.MolFromSmarts(mcs1.smartsString)
+        for i, mol in enumerate(mols):
+            rdDepictor.Compute2DCoords(mol)
+            if i:
+                mol.SetProp("_Name", "")
+        img = highlight_molecules(mols, mcs1, len(mols), same_orientation=True)
+        img.save(directory / f"{chembl_id}.png")
+        
+# TODO refractor
+def save_pdb_mcs_to_file(
+    most_similar_chembl_compounds, most_similar_pka_compounds, directory
+):
+    """Determines the MCS between each ChEMBL compound and the respective given compounds and saves them to png"""
+
+    if not os.path.isdir(directory):
+        os.makedirs(directory)
+    for id in most_similar_chembl_compounds.index:
+        mol_chembl = [most_similar_chembl_compounds["ROMol"][id]]
+        chembl_id = most_similar_chembl_compounds["ligand_id"][id]
+        mol_chembl[0].SetProp("_Name", "")
+        mols = mol_chembl + [
+            most_similar_pka_compounds[
+                most_similar_pka_compounds["most_similar.ligand_id"]
                 == chembl_id
             ]["ROMol"].iloc[0]
         ]

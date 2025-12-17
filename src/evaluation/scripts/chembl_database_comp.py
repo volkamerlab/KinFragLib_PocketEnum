@@ -5,7 +5,7 @@ import sys
 from kinfraglib.utils import standardize_mol
 from rdkit.Chem import PandasTools, rdFingerprintGenerator
 
-from src.evaluation.chembl.utils import most_similar_chembl_ligand
+from src.evaluation.scripts.utils import most_similar_chembl_ligand
 from src.evaluation.utils import read_mols
 
 if __name__ == "__main__":
