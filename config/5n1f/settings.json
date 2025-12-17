@@ -1,11 +1,11 @@
 {
-    "pdbCode": "3amb",
+    "pdbCode": "5n1f",
     "CoreSubpocket": "AP",
-    "Subpockets": ["SE", "FP", "GA"],
+    "Subpockets": ["FP", "GA"],
     "KinFragLib": "KinFragLib/data",
     "Config": "config_smarts_exclude",
     "FlexX": "flexx-6.0.0-Linux-x64/flexx",
-    "NumberFragmentsPerIterations": 10,
+    "NumberFragmentsPerIterations": 300,
     "NumberPosesPerFragment": 5,
     "Filters": {
             "pains": {},

@@ -47,7 +47,7 @@ if __name__ == "__main__":
 
     # parse configs
     config = Config()
-    config.parse(args.definitions)
+    config.parse(args.settings)
     config.initialize_folders(args.results)
 
     # init logging
@@ -112,7 +112,7 @@ if __name__ == "__main__":
 
     # Access fragment library
     fragment_library_original = utils.read_fragment_library(
-        config.path_kinfraglib / "fragment_library"
+        config.path_kinfraglib
     )
 
     logging.debug(
